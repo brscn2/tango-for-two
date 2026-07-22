@@ -47,7 +47,7 @@ describe('socket race flow', () => {
       a.emit('createRoom', { name: 'A', avatar: 'bee' }, (r: any) => resolve(r.code)),
     );
     await new Promise((resolve) =>
-      b.emit('joinRoom', { code, name: 'B', avatar: 'flower' }, () => resolve(null)),
+      b.emit('joinRoom', { code, name: 'B', avatar: 'blueFlower' }, () => resolve(null)),
     );
 
     const matchStarted = new Promise<any>((resolve) => a.on('matchStarted', resolve));

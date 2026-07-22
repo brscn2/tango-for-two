@@ -12,7 +12,7 @@ function manager() {
 describe('RoomManager', () => {
   it('creates a room as slot 0 and lets a second player join as slot 1', () => {
     const m = manager();
-    const { code, slot } = m.createRoom('Rosie', 'flower');
+    const { code, slot } = m.createRoom('Rosie', 'blueFlower');
     expect(slot).toBe(0);
     const join = m.joinRoom(code, 'Sam', 'bee');
     expect(join.ok).toBe(true);
@@ -27,14 +27,14 @@ describe('RoomManager', () => {
   it('rejects a third player', () => {
     const m = manager();
     const { code } = m.createRoom('A', 'bee');
-    m.joinRoom(code, 'B', 'flower');
+    m.joinRoom(code, 'B', 'blueFlower');
     expect(m.joinRoom(code, 'C', 'bee')).toEqual({ ok: false, error: 'Room is full' });
   });
 
   it('detects a race win when a player fills the correct solution', () => {
     const m = manager();
     const { code } = m.createRoom('A', 'bee');
-    m.joinRoom(code, 'B', 'flower');
+    m.joinRoom(code, 'B', 'blueFlower');
     const match = m.startMatch(code, 'race' as Mode, 'easy');
     const solution = m.getSolution(code)!; // test-only accessor
 
@@ -55,7 +55,7 @@ describe('RoomManager', () => {
   it('coop broadcasts cell updates and completes with no winner', () => {
     const m = manager();
     const { code } = m.createRoom('A', 'bee');
-    m.joinRoom(code, 'B', 'flower');
+    m.joinRoom(code, 'B', 'blueFlower');
     const match = m.startMatch(code, 'coop' as Mode, 'easy');
     const solution = m.getSolution(code)!;
 
