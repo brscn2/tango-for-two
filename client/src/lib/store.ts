@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { cloneGrid, DEFAULT_SYMBOLS, type Avatar, type Difficulty, type Grid, type MatchState, type Mode, type PlayerInfo, type ScoreEntry, type Slot, type Sym, type SymbolPair } from '@tango/shared';
+import { cloneGrid, DEFAULT_SYMBOLS, type Avatar, type BoardSize, type Difficulty, type Grid, type MatchState, type Mode, type PlayerInfo, type ScoreEntry, type Slot, type Sym, type SymbolPair } from '@tango/shared';
 import { createSocket, type TangoSocket } from './socket';
 
 export interface FloatingReaction { id: number; fromSlot: Slot; kind: 'emoji' | 'gif'; content: string; }
@@ -24,7 +24,7 @@ interface State {
   connect(): void;
   createRoom(name: string, avatar: Avatar): Promise<void>;
   joinRoom(code: string, name: string, avatar: Avatar): Promise<{ ok: boolean; error?: string }>;
-  startMatch(mode: Mode, difficulty: Difficulty): void;
+  startMatch(mode: Mode, difficulty: Difficulty, size?: BoardSize): void;
   setCell(row: number, col: number, value: Sym | null): void;
   sendReaction(kind: 'emoji' | 'gif', content: string): void;
   musicControl(action: 'load' | 'play' | 'pause' | 'seek', videoId?: string, positionSec?: number): void;
@@ -120,7 +120,7 @@ export const useStore = create<State>((set, get) => ({
     });
   },
 
-  startMatch(mode, difficulty) { get().socket!.emit('startMatch', { mode, difficulty }); },
+  startMatch(mode, difficulty, size = 6) { get().socket!.emit('startMatch', { mode, difficulty, size }); },
 
   setCell(row, col, value) {
     const board = get().myBoard;

@@ -36,7 +36,8 @@ The experience is intentionally cute and romantic: a "Dreamy Pastel" look (pink 
 | Communication | Reactions only: floating emoji + GIF overlays |
 | Connecting | Create room -> share link/code -> partner joins; no accounts |
 | Landing page | Personalized for the couple: photo, names greeting, days-together counter, rotating Bruno Mars lyric, pick-who-you-are (no name typing) |
-| Difficulty | Easy / Medium / Hard; classic 6x6 |
+| Difficulty | Easy / Medium / Hard; board size 4 / 6 / 8 / 10 (classic default 6×6) |
+| Puzzle pipeline | 8tango-style: row patterns → truthful =/× → logic unsolve → rule-scored difficulty |
 | Scoreboard | Persistent per-room: win tally, streaks, best solve times |
 | Game layout | Side-by-side (your board + partner's live mini-board) |
 | Tech approach | Self-contained full-stack app (React + Vite + Node/Socket.IO + SQLite) |

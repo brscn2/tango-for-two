@@ -5,7 +5,7 @@ import { generatePuzzle, mulberry32, type Difficulty, type Mode } from '@tango/s
 
 function manager() {
   // Deterministic generator for tests.
-  const gen = (d: Difficulty) => generatePuzzle(d, mulberry32(123));
+  const gen = (_s: 4 | 6 | 8 | 10, d: Difficulty) => generatePuzzle(6, d, mulberry32(123));
   return new RoomManager(createDb(':memory:'), gen);
 }
 

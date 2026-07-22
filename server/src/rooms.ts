@@ -1,7 +1,7 @@
 import { customAlphabet } from 'nanoid';
 import {
-  cloneGrid, generatePuzzle, isValidSolution, solve, DEFAULT_SYMBOLS, SIZE,
-  type Difficulty, type Grid, type Mode, type Slot, type Sym,
+  cloneGrid, generatePuzzle, isValidSolution, solve, DEFAULT_SYMBOLS,
+  type BoardSize, type Difficulty, type Grid, type Mode, type Slot, type Sym,
   type Avatar, type MatchState, type RoomState, type ScoreEntry, type SymbolPair,
 } from '@tango/shared';
 import type { Db } from './db';
@@ -16,7 +16,7 @@ export interface ApplyResult {
   won?: { winnerSlot: Slot | null; timeMs: number; scores: ScoreEntry[] };
 }
 
-type Generator = (difficulty: Difficulty) => ReturnType<typeof generatePuzzle>;
+type Generator = (size: BoardSize, difficulty: Difficulty) => ReturnType<typeof generatePuzzle>;
 
 export class RoomManager {
   private rooms = new Map<string, Room>();
@@ -63,16 +63,22 @@ export class RoomManager {
     if (room) room.symbols = symbols;
   }
 
-  startMatch(code: string, mode: Mode, difficulty: Difficulty): MatchState {
+  startMatch(code: string, mode: Mode, difficulty: Difficulty, size: BoardSize = 6): MatchState {
     const room = this.rooms.get(code);
     if (!room) throw new Error('Room not found');
-    const puzzle = this.gen(difficulty);
+    const puzzle = this.gen(size, difficulty);
     const solved = solve(puzzle);
     if (!solved) throw new Error('generated puzzle unexpectedly unsolvable');
     const match: Match = {
       mode,
       difficulty,
-      puzzle,
+      puzzle: {
+        id: puzzle.id,
+        size: puzzle.size,
+        clues: puzzle.clues,
+        constraints: puzzle.constraints,
+        difficulty: puzzle.difficulty,
+      },
       solution: solved,
       boards: mode === 'coop'
         ? [cloneGrid(puzzle.clues)]
@@ -106,7 +112,7 @@ export class RoomManager {
     const board = match.boards[slot];
     board[row][col] = value;
     const result: ApplyResult = {
-      progress: { slot, filled: countFilled(board), total: SIZE * SIZE },
+      progress: { slot, filled: countFilled(board), total: match.puzzle.size * match.puzzle.size },
     };
     if (isSolved(board, match)) {
       match.status = 'won';

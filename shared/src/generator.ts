@@ -1,8 +1,9 @@
-import { Coord, Difficulty, EdgeConstraint, Grid, HALF, Puzzle, SIZE, Sym } from './types';
-import { cloneGrid, emptyGrid } from './rules';
+import type { BoardSize, Coord, Difficulty, EdgeConstraint, Grid, Puzzle, Sym } from './types';
+import { half } from './types';
+import { cloneGrid, emptyGrid, gridsEqual, isValidSolution } from './rules';
+import { allRowVariants } from './patterns';
+import { logicReaches, solveLogic } from './logicSolver';
 import { countSolutions } from './solver';
-
-const SYMS: Sym[] = ['bee', 'flower'];
 
 function shuffle<T>(arr: T[], rnd: () => number): T[] {
   const a = arr.slice();
@@ -13,73 +14,75 @@ function shuffle<T>(arr: T[], rnd: () => number): T[] {
   return a;
 }
 
-function allCoords(): Coord[] {
-  const cells: Coord[] = [];
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) cells.push([r, c]);
-  return cells;
-}
-
-function placementValid(g: Grid, r: number, c: number): boolean {
-  const v = g[r][c];
-  for (let s = Math.max(0, c - 2); s <= Math.min(SIZE - 3, c); s++) {
-    if (g[r][s] !== null && g[r][s] === g[r][s + 1] && g[r][s + 1] === g[r][s + 2]) return false;
+function colOk(g: Grid, rowsPlaced: number): boolean {
+  const n = g.length;
+  const h = half(n);
+  for (let c = 0; c < n; c++) {
+    let bees = 0, flowers = 0;
+    for (let r = 0; r < rowsPlaced; r++) {
+      if (g[r][c] === 'bee') bees++;
+      else flowers++;
+    }
+    if (bees > h || flowers > h) return false;
+    for (let r = 0; r + 2 < rowsPlaced; r++) {
+      if (g[r][c] === g[r + 1][c] && g[r + 1][c] === g[r + 2][c]) return false;
+    }
   }
-  for (let s = Math.max(0, r - 2); s <= Math.min(SIZE - 3, r); s++) {
-    if (g[s][c] !== null && g[s][c] === g[s + 1][c] && g[s + 1][c] === g[s + 2][c]) return false;
-  }
-  let rc = 0, cc = 0;
-  for (let k = 0; k < SIZE; k++) {
-    if (g[r][k] === v) rc++;
-    if (g[k][c] === v) cc++;
-  }
-  if (rc > HALF || cc > HALF) return false;
-  // LinkedIn uniqueness: a newly completed row/col must not match another complete one.
-  if (g[r].every((cell) => cell !== null)) {
+  // unique rows among placed
+  const seen = new Set<string>();
+  for (let r = 0; r < rowsPlaced; r++) {
     const key = g[r].join(',');
-    for (let rr = 0; rr < SIZE; rr++) {
-      if (rr === r) continue;
-      if (g[rr].every((cell) => cell !== null) && g[rr].join(',') === key) return false;
-    }
-  }
-  if (g.every((row) => row[c] !== null)) {
-    const key = g.map((row) => row[c]).join(',');
-    for (let cc = 0; cc < SIZE; cc++) {
-      if (cc === c) continue;
-      if (g.every((row) => row[cc] !== null) && g.map((row) => row[cc]).join(',') === key) return false;
-    }
+    if (seen.has(key)) return false;
+    seen.add(key);
   }
   return true;
 }
 
-/** Random valid, fully-filled grid via randomized backtracking. */
-export function generateSolution(rnd: () => number = Math.random): Grid {
-  const g = emptyGrid();
-  const cells = allCoords();
-  const dfs = (i: number): boolean => {
-    if (i === cells.length) return true;
-    const [r, c] = cells[i];
-    for (const s of shuffle(SYMS, rnd)) {
-      g[r][c] = s;
-      if (placementValid(g, r, c) && dfs(i + 1)) return true;
-      g[r][c] = null;
-    }
-    return false;
-  };
-  if (!dfs(0)) {
-    // Extremely unlikely on 6×6; retry with a fresh board rather than return an invalid grid.
-    return generateSolution(rnd);
+function colsUnique(g: Grid): boolean {
+  const n = g.length;
+  const seen = new Set<string>();
+  for (let c = 0; c < n; c++) {
+    const key = g.map((row) => row[c]).join(',');
+    if (seen.has(key)) return false;
+    seen.add(key);
   }
-  return g;
+  return true;
+}
+
+/** Step 1: build a complete solution from row patterns. */
+export function generateSolution(size: BoardSize = 6, rnd: () => number = Math.random): Grid {
+  const variants = allRowVariants(size);
+  const attempt = (): Grid | null => {
+    const g = emptyGrid(size);
+    const pool = shuffle(variants, rnd);
+    const dfs = (r: number): boolean => {
+      if (r === size) return colsUnique(g) && isValidSolution(g, []);
+      for (const row of shuffle(pool, rnd)) {
+        g[r] = row.slice() as Sym[];
+        if (!colOk(g, r + 1)) continue;
+        if (dfs(r + 1)) return true;
+      }
+      g[r] = Array(size).fill(null);
+      return false;
+    };
+    return dfs(0) ? g : null;
+  };
+  for (let i = 0; i < 40; i++) {
+    const sol = attempt();
+    if (sol) return sol;
+  }
+  throw new Error(`generateSolution failed for size ${size}`);
 }
 
 function deriveConstraints(sol: Grid, density: number, rnd: () => number): EdgeConstraint[] {
+  const n = sol.length;
   const edges: EdgeConstraint[] = [];
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      if (c + 1 < SIZE && rnd() < density) {
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (c + 1 < n && rnd() < density) {
         edges.push({ a: [r, c], b: [r, c + 1], kind: sol[r][c] === sol[r][c + 1] ? '=' : 'x' });
       }
-      if (r + 1 < SIZE && rnd() < density) {
+      if (r + 1 < n && rnd() < density) {
         edges.push({ a: [r, c], b: [r + 1, c], kind: sol[r][c] === sol[r + 1][c] ? '=' : 'x' });
       }
     }
@@ -87,36 +90,103 @@ function deriveConstraints(sol: Grid, density: number, rnd: () => number): EdgeC
   return edges;
 }
 
-const DIFFICULTY: Record<Difficulty, { density: number; minClues: number }> = {
-  easy: { density: 0.30, minClues: 12 },
-  medium: { density: 0.18, minClues: 6 },
-  hard: { density: 0.10, minClues: 0 },
-};
+function allCoords(size: number): Coord[] {
+  const cells: Coord[] = [];
+  for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) cells.push([r, c]);
+  return cells;
+}
+
+/** Modifier density by size + difficulty (Step 2). */
+function modifierDensity(size: BoardSize, difficulty: Difficulty): number {
+  const base: Record<BoardSize, number> = { 4: 0.22, 6: 0.28, 8: 0.32, 10: 0.36 };
+  const mult: Record<Difficulty, number> = { easy: 1.15, medium: 1.0, hard: 0.85 };
+  return base[size] * mult[difficulty];
+}
+
+/** Score bands per size (Step 4). */
+function inBand(size: BoardSize, difficulty: Difficulty, score: number): boolean {
+  // Higher score ⇒ harder. Easy prefers low scores.
+  const bands: Record<BoardSize, Record<Difficulty, [number, number]>> = {
+    4: { easy: [0, 12], medium: [6, 30], hard: [12, 999] },
+    6: { easy: [0, 15], medium: [8, 40], hard: [18, 999] },
+    8: { easy: [0, 20], medium: [10, 50], hard: [22, 999] },
+    10: { easy: [0, 25], medium: [12, 60], hard: [25, 999] },
+  };
+  const [lo, hi] = bands[size][difficulty];
+  return score >= lo && score <= hi;
+}
 
 let seq = 0;
 
-/**
- * Build a uniquely-solvable puzzle: derive constraints from a random solution,
- * then greedily remove clues while uniqueness is preserved.
- */
-export function generatePuzzle(difficulty: Difficulty, rnd: () => number = Math.random): Puzzle {
-  const sol = generateSolution(rnd);
-  const { density, minClues } = DIFFICULTY[difficulty];
-  const constraints = deriveConstraints(sol, density, rnd);
+function unsolve(sol: Grid, constraints: EdgeConstraint[], difficulty: Difficulty, size: BoardSize, rnd: () => number): Grid {
   const clues = cloneGrid(sol);
-
-  let remaining = SIZE * SIZE;
-  for (const [r, c] of shuffle(allCoords(), rnd)) {
-    if (remaining <= minClues) break;
+  for (const [r, c] of shuffle(allCoords(size), rnd)) {
+    if (clues[r][c] === null) continue;
     const saved = clues[r][c];
     clues[r][c] = null;
-    const stillUnique = countSolutions({ id: 't', clues, constraints, difficulty }, 2) === 1;
-    if (stillUnique) {
-      remaining--;
+    const puzzle: Puzzle = { id: 't', size, clues, constraints, difficulty };
+    if (logicReaches(puzzle, sol)) {
+      // keep blank
     } else {
       clues[r][c] = saved;
     }
   }
+  return clues;
+}
 
-  return { id: `p${Date.now()}-${seq++}`, clues, constraints, difficulty };
+/**
+ * Four-step pipeline: pattern solution → truthful modifiers → logic unsolve → score.
+ */
+export function generatePuzzle(
+  size: BoardSize,
+  difficulty: Difficulty,
+  rnd: () => number = Math.random,
+): Puzzle {
+  let best: Puzzle | null = null;
+  let bestDist = Infinity;
+
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const sol = generateSolution(size, rnd);
+    const constraints = deriveConstraints(sol, modifierDensity(size, difficulty), rnd);
+    const clues = unsolve(sol, constraints, difficulty, size, rnd);
+    const puzzle: Puzzle = {
+      id: `p${Date.now()}-${seq++}`,
+      size,
+      clues,
+      constraints,
+      difficulty,
+    };
+
+    if (!logicReaches(puzzle, sol)) continue;
+    if (countSolutions(puzzle, 2) !== 1) continue;
+
+    const { score, grid, complete } = solveLogic(puzzle);
+    if (!complete || !gridsEqual(grid, sol)) continue;
+
+    if (inBand(size, difficulty, score)) return puzzle;
+
+    // Track closest band miss
+    const bands: Record<Difficulty, [number, number]> = {
+      easy: [0, 15], medium: [8, 40], hard: [18, 999],
+    };
+    const [lo, hi] = bands[difficulty];
+    const dist = score < lo ? lo - score : score > hi ? score - hi : 0;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = puzzle;
+    }
+  }
+
+  if (best) return best;
+
+  // Last resort: full clues (still fair / unique)
+  const sol = generateSolution(size, rnd);
+  const constraints = deriveConstraints(sol, modifierDensity(size, difficulty), rnd);
+  return {
+    id: `p${Date.now()}-${seq++}`,
+    size,
+    clues: cloneGrid(sol),
+    constraints,
+    difficulty,
+  };
 }

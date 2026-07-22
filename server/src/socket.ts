@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { Avatar, C2S, Difficulty, Mode, MusicControl, S2C, Slot, Sym, SymbolPair } from '@tango/shared';
+import type { Avatar, BoardSize, C2S, Difficulty, Mode, MusicControl, S2C, Slot, Sym, SymbolPair } from '@tango/shared';
 import type { RoomManager } from './rooms';
 
 interface Session { code: string; slot: Slot; }
@@ -36,9 +36,9 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       if (board) socket.emit('boardSync', board);
     });
 
-    socket.on('startMatch', ({ mode, difficulty }: { mode: Mode; difficulty: Difficulty }) => {
+    socket.on('startMatch', ({ mode, difficulty, size }: { mode: Mode; difficulty: Difficulty; size?: BoardSize }) => {
       if (!session) return;
-      const match = manager.startMatch(session.code, mode, difficulty);
+      const match = manager.startMatch(session.code, mode, difficulty, size ?? 6);
       io.to(session.code).emit('matchStarted', match);
     });
 

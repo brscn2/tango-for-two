@@ -19,18 +19,19 @@ function empty(): Grid { return Array.from({ length: 6 }, () => Array(6).fill(nu
 
 describe('solver', () => {
   it('a fully-specified board has exactly one solution', () => {
-    const p: Puzzle = { id: 'x', clues: fullClues(VALID), constraints: [], difficulty: 'easy' };
+    const p: Puzzle = { id: 'x', size: 6, clues: fullClues(VALID), constraints: [], difficulty: 'easy' };
     expect(countSolutions(p, 2)).toBe(1);
   });
 
   it('an empty board has more than one solution (returns limit)', () => {
-    const p: Puzzle = { id: 'x', clues: empty(), constraints: [], difficulty: 'easy' };
+    const p: Puzzle = { id: 'x', size: 6, clues: empty(), constraints: [], difficulty: 'easy' };
     expect(countSolutions(p, 2)).toBe(2);
   });
 
   it('solve returns a valid completed grid honoring constraints', () => {
     const p: Puzzle = {
       id: 'x',
+      size: 6,
       clues: empty(),
       constraints: [{ a: [0, 0], b: [0, 1], kind: 'x' }],
       difficulty: 'easy',
@@ -50,7 +51,7 @@ describe('solver', () => {
       [B, F, B, F, B, F],
       [F, B, F, B, F, B],
     ];
-    const p: Puzzle = { id: 'x', clues: fullClues(illegal), constraints: [], difficulty: 'easy' };
+    const p: Puzzle = { id: 'x', size: 6, clues: fullClues(illegal), constraints: [], difficulty: 'easy' };
     expect(countSolutions(p, 2)).toBe(0);
     expect(solve(p)).toBeNull();
   });
@@ -60,7 +61,7 @@ describe('solver', () => {
     illegal[0][0] = B; illegal[0][1] = B; illegal[0][2] = B;
     // Keep balance by flipping the matching flowers later in the row.
     illegal[0][3] = F; illegal[0][4] = F; illegal[0][5] = F;
-    const p: Puzzle = { id: 'x', clues: illegal, constraints: [], difficulty: 'easy' };
+    const p: Puzzle = { id: 'x', size: 6, clues: illegal, constraints: [], difficulty: 'easy' };
     expect(countSolutions(p, 2)).toBe(0);
     expect(solve(p)).toBeNull();
   });
@@ -69,6 +70,7 @@ describe('solver', () => {
     // Same edge cannot be both '=' and 'x'.
     const p: Puzzle = {
       id: 'x',
+      size: 6,
       clues: fullClues(VALID),
       constraints: [
         { a: [0, 0], b: [0, 1], kind: '=' },
@@ -89,7 +91,7 @@ describe('solver', () => {
       [B, F, B, F, B, F],
       [F, B, F, B, F, B],
     ];
-    const p: Puzzle = { id: 'x', clues: fullClues(dups), constraints: [], difficulty: 'easy' };
+    const p: Puzzle = { id: 'x', size: 6, clues: fullClues(dups), constraints: [], difficulty: 'easy' };
     expect(countSolutions(p, 2)).toBe(0);
     expect(solve(p)).toBeNull();
   });

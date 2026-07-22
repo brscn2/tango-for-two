@@ -1,4 +1,4 @@
-import type { Difficulty, EdgeConstraint, Grid, Sym } from './types';
+import type { BoardSize, Difficulty, EdgeConstraint, Grid, Sym } from './types';
 
 export type Slot = 0 | 1;
 export type Mode = 'race' | 'coop';
@@ -21,6 +21,7 @@ export interface PlayerInfo {
 
 export interface PublicPuzzle {
   id: string;
+  size: BoardSize;
   clues: Grid;
   constraints: EdgeConstraint[];
   difficulty: Difficulty;
@@ -60,7 +61,7 @@ export interface MusicControl {
 export interface C2S {
   createRoom: (p: { name: string; avatar: Avatar }, cb: (r: { code: string; slot: Slot }) => void) => void;
   joinRoom: (p: { code: string; name: string; avatar: Avatar }, cb: (r: { ok: boolean; slot?: Slot; error?: string }) => void) => void;
-  startMatch: (p: { mode: Mode; difficulty: Difficulty }) => void;
+  startMatch: (p: { mode: Mode; difficulty: Difficulty; size?: BoardSize }) => void;
   cellUpdate: (p: { row: number; col: number; value: Sym | null }) => void;
   reaction: (p: { kind: 'emoji' | 'gif'; content: string }) => void;
   musicControl: (p: MusicControl) => void;

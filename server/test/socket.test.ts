@@ -14,7 +14,7 @@ const clients: Socket[] = [];
 function start() {
   server = http.createServer();
   const ioServer = new Server(server);
-  const gen = (d: Difficulty) => generatePuzzle(d, mulberry32(999));
+  const gen = (_s: 4 | 6 | 8 | 10, d: Difficulty) => generatePuzzle(6, d, mulberry32(999));
   const manager = new RoomManager(createDb(':memory:'), gen);
   registerSocketHandlers(ioServer, manager);
   return new Promise<{ url: string; manager: RoomManager }>((resolve) => {

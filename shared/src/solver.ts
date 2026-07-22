@@ -1,42 +1,38 @@
-import { Coord, EdgeConstraint, Grid, HALF, Puzzle, SIZE, Sym } from './types';
+import { Coord, EdgeConstraint, Grid, Puzzle, Sym, half } from './types';
 import { cloneGrid, isValidSolution } from './rules';
 
 const SYMS: Sym[] = ['bee', 'flower'];
 
-/** Validity check limited to the impact of placing a symbol at (r, c). */
 function partialValid(g: Grid, r: number, c: number, constraints: EdgeConstraint[]): boolean {
+  const n = g.length;
+  const h = half(n);
   const v = g[r][c];
-  // No horizontal triple containing column c.
-  for (let s = Math.max(0, c - 2); s <= Math.min(SIZE - 3, c); s++) {
+  for (let s = Math.max(0, c - 2); s <= Math.min(n - 3, c); s++) {
     if (g[r][s] !== null && g[r][s] === g[r][s + 1] && g[r][s + 1] === g[r][s + 2]) return false;
   }
-  // No vertical triple containing row r.
-  for (let s = Math.max(0, r - 2); s <= Math.min(SIZE - 3, r); s++) {
+  for (let s = Math.max(0, r - 2); s <= Math.min(n - 3, r); s++) {
     if (g[s][c] !== null && g[s][c] === g[s + 1][c] && g[s + 1][c] === g[s + 2][c]) return false;
   }
-  // Row/column counts must not exceed HALF.
   let rc = 0, cc = 0;
-  for (let k = 0; k < SIZE; k++) {
+  for (let k = 0; k < n; k++) {
     if (g[r][k] === v) rc++;
     if (g[k][c] === v) cc++;
   }
-  if (rc > HALF || cc > HALF) return false;
-  // LinkedIn uniqueness: a newly completed row/col must not match another complete one.
+  if (rc > h || cc > h) return false;
   if (g[r].every((cell) => cell !== null)) {
     const key = g[r].join(',');
-    for (let rr = 0; rr < SIZE; rr++) {
+    for (let rr = 0; rr < n; rr++) {
       if (rr === r) continue;
       if (g[rr].every((cell) => cell !== null) && g[rr].join(',') === key) return false;
     }
   }
   if (g.every((row) => row[c] !== null)) {
     const key = g.map((row) => row[c]).join(',');
-    for (let cc = 0; cc < SIZE; cc++) {
-      if (cc === c) continue;
-      if (g.every((row) => row[cc] !== null) && g.map((row) => row[cc]).join(',') === key) return false;
+    for (let cc2 = 0; cc2 < n; cc2++) {
+      if (cc2 === c) continue;
+      if (g.every((row) => row[cc2] !== null) && g.map((row) => row[cc2]).join(',') === key) return false;
     }
   }
-  // Constraints incident to (r, c) with both endpoints filled.
   for (const { a, b, kind } of constraints) {
     const touches = (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c);
     if (!touches) continue;
@@ -51,12 +47,12 @@ function partialValid(g: Grid, r: number, c: number, constraints: EdgeConstraint
 }
 
 function emptyCells(g: Grid): Coord[] {
+  const n = g.length;
   const cells: Coord[] = [];
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (g[r][c] === null) cells.push([r, c]);
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (g[r][c] === null) cells.push([r, c]);
   return cells;
 }
 
-/** Counts solutions up to `limit` (default 2 - enough to test uniqueness). */
 export function countSolutions(puzzle: Puzzle, limit = 2): number {
   const g = cloneGrid(puzzle.clues);
   const cells = emptyCells(g);
@@ -64,7 +60,6 @@ export function countSolutions(puzzle: Puzzle, limit = 2): number {
   const dfs = (i: number): void => {
     if (count >= limit) return;
     if (i === cells.length) {
-      // Full board: reject illegal pre-filled inputs and confirm a true solution.
       if (isValidSolution(g, puzzle.constraints)) count++;
       return;
     }
@@ -80,7 +75,6 @@ export function countSolutions(puzzle: Puzzle, limit = 2): number {
   return count;
 }
 
-/** Returns one valid completion, or null if unsolvable. */
 export function solve(puzzle: Puzzle): Grid | null {
   const g = cloneGrid(puzzle.clues);
   const cells = emptyCells(g);

@@ -1,4 +1,4 @@
-import { SIZE, type EdgeConstraint, type Grid, type SymbolPair } from '@tango/shared';
+import type { EdgeConstraint, Grid, SymbolPair } from '@tango/shared';
 import { conflictSet, cycleSymbol, lockedSet } from '../lib/boardLogic';
 import { Cell } from './Cell';
 import { ConstraintMark } from './ConstraintMark';
@@ -13,10 +13,10 @@ interface Props {
 }
 
 export function Board({ board, clues, constraints, symbols, onCell, disabled }: Props) {
+  const size = board.length;
   const locked = lockedSet(clues);
   const conflicts = conflictSet(board, constraints);
 
-  // Index constraints by "between" position for overlay marks.
   const marks = constraints.map((c) => {
     const horizontal = c.a[0] === c.b[0];
     const row = c.a[0];
@@ -26,8 +26,8 @@ export function Board({ board, clues, constraints, symbols, onCell, disabled }: 
   });
 
   return (
-    <div className="relative">
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }}>
+    <div className="relative w-full max-w-xl mx-auto">
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}>
         {board.map((rowArr, r) =>
           rowArr.map((value, c) => (
             <Cell
@@ -41,11 +41,10 @@ export function Board({ board, clues, constraints, symbols, onCell, disabled }: 
           )),
         )}
       </div>
-      {/* Constraint marks overlaid at midpoints. Positioned as a percentage of the grid. */}
       <div className="pointer-events-none absolute inset-0">
         {marks.map((m, i) => {
-          const stepX = 100 / SIZE;
-          const stepY = 100 / SIZE;
+          const stepX = 100 / size;
+          const stepY = 100 / size;
           const left = m.horizontal ? (m.col + 1) * stepX : (m.col + 0.5) * stepX;
           const top = m.horizontal ? (m.row + 0.5) * stepY : (m.rowB + 1) * stepY;
           return (

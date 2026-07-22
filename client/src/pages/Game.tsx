@@ -75,7 +75,9 @@ export function Game() {
             />
           </div>
           {match.mode === 'race' && (
-            <div className="flex-1"><OpponentBoard filled={opponentFilled} name={opponentName} /></div>
+            <div className="flex-1">
+              <OpponentBoard filled={opponentFilled} name={opponentName} size={match.puzzle.size} />
+            </div>
           )}
         </div>
       )}
