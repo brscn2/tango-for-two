@@ -48,7 +48,15 @@ import type { Difficulty, EdgeConstraint, Grid, Sym } from './types';
 
 export type Slot = 0 | 1;
 export type Mode = 'race' | 'coop';
-export type Avatar = 'bee' | 'flower';
+
+// All selectable symbol icons. The engine still uses logical 'bee'/'flower';
+// a SymbolPair maps logical 'bee' -> a, logical 'flower' -> b for rendering.
+export type SymbolKey = 'bee' | 'blueFlower' | 'shokupan' | 'saltBread' | 'matcha' | 'boba' | 'iceCream';
+export interface SymbolPair { a: SymbolKey; b: SymbolKey; }
+export const DEFAULT_SYMBOLS: SymbolPair = { a: 'bee', b: 'blueFlower' };
+
+// A player's chosen identity icon can be any palette icon.
+export type Avatar = SymbolKey;
 
 export interface PlayerInfo {
   slot: Slot;
@@ -85,6 +93,7 @@ export interface RoomState {
   players: PlayerInfo[];
   scores: ScoreEntry[];
   match: MatchState | null;
+  symbols: SymbolPair; // the pair both players currently see
 }
 
 export interface MusicControl {
@@ -101,6 +110,7 @@ export interface C2S {
   cellUpdate: (p: { row: number; col: number; value: Sym | null }) => void;
   reaction: (p: { kind: 'emoji' | 'gif'; content: string }) => void;
   musicControl: (p: MusicControl) => void;
+  setSymbols: (p: SymbolPair) => void;
 }
 
 // Server -> Client events
@@ -366,7 +376,7 @@ export function countFilled(g: Grid): number {
 - [ ] **Step 2: Write `server/src/types.ts`**
 
 ```ts
-import type { Avatar, Difficulty, Grid, Mode, PublicPuzzle, Slot } from '@tango/shared';
+import type { Avatar, Difficulty, Grid, Mode, PublicPuzzle, Slot, SymbolPair } from '@tango/shared';
 
 export interface Player {
   slot: Slot;
@@ -391,6 +401,7 @@ export interface Room {
   code: string;
   players: (Player | null)[]; // index by slot
   match: Match | null;
+  symbols: SymbolPair; // current shared symbol pair
 }
 ```
 
@@ -497,9 +508,9 @@ Expected: FAIL - `Cannot find module '../src/rooms'`.
 ```ts
 import { customAlphabet } from 'nanoid';
 import {
-  cloneGrid, generatePuzzle, isValidSolution, SIZE,
+  cloneGrid, generatePuzzle, isValidSolution, solve, DEFAULT_SYMBOLS, SIZE,
   type Difficulty, type Grid, type Mode, type Slot, type Sym,
-  type Avatar, type MatchState, type RoomState, type ScoreEntry,
+  type Avatar, type MatchState, type RoomState, type ScoreEntry, type SymbolPair,
 } from '@tango/shared';
 import type { Db } from './db';
 import type { Match, Player, Room } from './types';
@@ -524,7 +535,7 @@ export class RoomManager {
     let code = makeCode();
     while (this.rooms.has(code)) code = makeCode();
     const player: Player = { slot: 0, name, avatar, socketId: null, connected: true };
-    this.rooms.set(code, { code, players: [player, null], match: null });
+    this.rooms.set(code, { code, players: [player, null], match: null, symbols: { ...DEFAULT_SYMBOLS } });
     this.db.ensureRoom(code);
     return { code, slot: 0 };
   }
@@ -542,11 +553,17 @@ export class RoomManager {
     if (p) { p.connected = connected; p.socketId = socketId; }
   }
 
+  setSymbols(code: string, symbols: SymbolPair): void {
+    const room = this.rooms.get(code);
+    if (room) room.symbols = symbols;
+  }
+
   startMatch(code: string, mode: Mode, difficulty: Difficulty): MatchState {
     const room = this.rooms.get(code);
     if (!room) throw new Error('Room not found');
     const puzzle = this.gen(difficulty);
-    const solved = solveOrThrow(puzzle);
+    const solved = solve(puzzle);
+    if (!solved) throw new Error('generated puzzle unexpectedly unsolvable');
     const match: Match = {
       mode,
       difficulty,
@@ -607,6 +624,7 @@ export class RoomManager {
       players,
       scores: this.db.getScores(code),
       match: room.match ? toMatchState(room.match) : null,
+      symbols: room.symbols,
     };
   }
 
@@ -631,33 +649,9 @@ function toMatchState(m: Match): MatchState {
   };
 }
 
-function solveOrThrow(puzzle: ReturnType<typeof generatePuzzle>): Grid {
-  // The generator guarantees a unique solution; solve to obtain it.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { solve } = require('@tango/shared');
-  const s = solve(puzzle);
-  if (!s) throw new Error('generated puzzle unexpectedly unsolvable');
-  return s;
-}
 ```
 
-Note: replace the `require` in `solveOrThrow` with a top-level `import { solve } from '@tango/shared';` and delete `solveOrThrow`'s inner require. The final code should import `solve` at the top alongside the other `@tango/shared` imports and call `const solved = solve(puzzle)` with a null check. Written out explicitly:
-
-```ts
-// at top of file, add solve to the import list:
-import {
-  cloneGrid, generatePuzzle, isValidSolution, solve, SIZE,
-  type Difficulty, type Grid, type Mode, type Slot, type Sym,
-  type Avatar, type MatchState, type RoomState, type ScoreEntry,
-} from '@tango/shared';
-
-// and in startMatch:
-const puzzle = this.gen(difficulty);
-const solved = solve(puzzle);
-if (!solved) throw new Error('generated puzzle unexpectedly unsolvable');
-```
-
-Remove the `solveOrThrow` helper entirely.
+Note: `solve` is imported at the top from `@tango/shared` (see the import block above) and used directly in `startMatch`. The generator guarantees a unique solution, so the null check is defensive.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -682,7 +676,7 @@ git commit -m "feat(server): RoomManager with race/coop match logic and win dete
 
 ```ts
 import type { Server, Socket } from 'socket.io';
-import type { Avatar, C2S, Difficulty, Mode, MusicControl, S2C, Slot, Sym } from '@tango/shared';
+import type { Avatar, C2S, Difficulty, Mode, MusicControl, S2C, Slot, Sym, SymbolPair } from '@tango/shared';
 import type { RoomManager } from './rooms';
 
 interface Session { code: string; slot: Slot; }
@@ -738,6 +732,12 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       if (!session) return;
       // Broadcast to everyone (including sender) with a server timestamp for drift correction.
       io.to(session.code).emit('musicSync', { ...ctrl, serverTime: Date.now() });
+    });
+
+    socket.on('setSymbols', (symbols: SymbolPair) => {
+      if (!session) return;
+      manager.setSymbols(session.code, symbols);
+      broadcastRoomState(session.code);
     });
 
     socket.on('disconnect', () => {
@@ -915,7 +915,7 @@ git commit -m "test(server): end-to-end race socket flow"
 
 ## Self-Review (completed by plan author)
 
-- **Spec coverage:** Room creation/join by code (Task 5), Race + Co-op live sync and win detection (Task 5), scoreboard persistence with wins/streaks/best times (Task 3), reactions + synced music broadcast (Task 6), disconnect handling (Task 6), static hosting for the client (Task 7). Matches spec sections "Real-Time Data Flow", "Persistence", "Error Handling".
+- **Spec coverage:** Room creation/join by code (Task 5), Race + Co-op live sync and win detection (Task 5), scoreboard persistence with wins/streaks/best times (Task 3), reactions + synced music broadcast (Task 6), shared symbol-pair selection synced via `setSymbols` + `roomState` (Tasks 1, 5, 6), disconnect handling (Task 6), static hosting for the client (Task 7). Matches spec sections "Real-Time Data Flow", "Symbol selection", "Persistence", "Error Handling".
 - **Placeholder scan:** No TBD/TODO. The one `require`-based note in Task 5 is explicitly replaced with a top-level `import { solve }` in the same task; final code uses the import.
 - **Type consistency:** Server imports `Slot`, `Mode`, `Avatar`, `MatchState`, `RoomState`, `ScoreEntry`, `MusicControl`, `C2S`, `S2C` from `@tango/shared/protocol` (Task 1) and uses them uniformly in `db.ts`, `rooms.ts`, `socket.ts`. `ApplyResult` shape (progress/coop/won) produced by `RoomManager.applyCell` matches what `socket.ts` consumes.
 

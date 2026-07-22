@@ -7,7 +7,7 @@ Status: Approved (pending spec review)
 
 A private, two-player website for playing unlimited [Tango](https://www.linkedin.com/games/tango/) (the LinkedIn logic puzzle) together. One partner creates a room and shares a link; the other joins. No accounts, no passwords. The pair chooses a mode (Race or Co-op) and a difficulty (Easy/Medium/Hard), and a fresh, guaranteed-unique puzzle is generated for every match.
 
-The experience is intentionally cute and romantic: a "Dreamy Pastel" look (pink + lavender gradients, soft glow, sparkles), a bee and blue-flower symbol pair instead of the original sun/moon, floating emoji + GIF reactions, a shared synced music jukebox defaulting to Bruno Mars, and a persistent per-room scoreboard (win tally, streaks, best solve times).
+The experience is intentionally cute and romantic: a "Dreamy Pastel" look (pink + lavender gradients, soft glow, sparkles), a selectable symbol pair (defaulting to a bee and blue flower instead of the original sun/moon), floating emoji + GIF reactions, a shared synced music jukebox defaulting to Bruno Mars, and a persistent per-room scoreboard (win tally, streaks, best solve times). The landing page is personalized specifically for the two people who play it.
 
 ## Goals
 
@@ -30,11 +30,12 @@ The experience is intentionally cute and romantic: a "Dreamy Pastel" look (pink 
 | --- | --- |
 | Multiplayer modes | Race (priority) + Co-op, both real-time |
 | Puzzle supply | On-the-fly generator with uniqueness guarantee |
-| Symbols | Bee + blue flower (custom SVG icons) |
+| Symbols | Selectable pair from a shared palette; default bee + blue flower. Palette: bee, blue flower, shokupan, salt bread, matcha, boba, ice cream |
 | Aesthetic | Dreamy Pastel (pink/lavender gradients, glossy, sparkles) |
 | Music | Shared synced jukebox (YouTube), default Bruno Mars playlist, paste any link |
 | Communication | Reactions only: floating emoji + GIF overlays |
 | Connecting | Create room -> share link/code -> partner joins; no accounts |
+| Landing page | Personalized for the couple: photo, names greeting, days-together counter, rotating Bruno Mars lyric, pick-who-you-are (no name typing) |
 | Difficulty | Easy / Medium / Hard; classic 6x6 |
 | Scoreboard | Persistent per-room: win tally, streaks, best solve times |
 | Game layout | Side-by-side (your board + partner's live mini-board) |
@@ -149,10 +150,17 @@ tango-multiplayer/
 - Receiving clients seek to the correct position using the timestamp offset; a periodic re-sync corrects drift.
 - Default content is a Bruno Mars playlist.
 
+### Symbol selection
+
+- The engine's two logical states remain `bee` / `flower`; a chosen **symbol pair** only changes rendering. This keeps the generator/solver symbol-agnostic.
+- A shared palette of icon keys: `bee`, `blueFlower`, `shokupan`, `saltBread`, `matcha`, `boba`, `iceCream`.
+- Either player can pick any two icons (a `SymbolPair` mapping logical `bee` -> icon A and `flower` -> icon B). The choice is stored on the room and broadcast so both players see identical symbols. Default pair is bee + blue flower. Selectable on the landing page and before any match.
+- `bee` and `blueFlower` render as custom SVGs; food icons render as crisp emoji-style glyphs.
+
 ### Socket events (illustrative)
 
-- Client -> server: `createRoom`, `joinRoom`, `setProfile`, `startMatch`, `cellUpdate`, `reaction`, `music:control`.
-- Server -> client: `roomState`, `matchStarted`, `opponentProgress`, `coopCellUpdate`, `matchWon`, `reaction`, `music:sync`, `scoreboard`, `partnerDisconnected`, `error`.
+- Client -> server: `createRoom`, `joinRoom`, `startMatch`, `cellUpdate`, `reaction`, `musicControl`, `setSymbols`.
+- Server -> client: `roomState` (includes players, scores, match, and current `symbols`), `matchStarted`, `opponentProgress`, `coopCellUpdate`, `matchWon`, `reaction`, `musicSync`, `partnerDisconnected`, `errorMsg`.
 
 ## Persistence (SQLite)
 
@@ -168,15 +176,41 @@ tango-multiplayer/
 - Generator always verified to produce a uniquely solvable puzzle before it is served.
 - Music sync gracefully degrades: if one client fails to load YouTube, the game continues unaffected.
 
+## Personalization
+
+The landing page is tailored to the specific couple. All personal content lives in one editable config file (`client/src/config/personal.ts`) so nothing personal is hard-coded across the app and it can be changed anytime:
+
+- A **couple photo** centerpiece (image dropped in `client/public/`).
+- A **greeting** using both names ("Welcome back, Rosie & Sam").
+- A **days-together counter** computed from an anniversary date.
+- A **rotating quote** picked from a list of favorite Bruno Mars lyrics / inside jokes.
+- **Pick-who-you-are**: two preset player buttons (name + icon each) replace the "type your name" step. Tapping one sets your identity, then you create or join a room.
+
+Config shape (illustrative):
+
+```ts
+export const personal = {
+  players: [
+    { id: 'p1', name: 'Rosie', icon: 'blueFlower' },
+    { id: 'p2', name: 'Sam', icon: 'bee' },
+  ],
+  anniversary: '2022-06-18', // YYYY-MM-DD
+  photoSrc: '/couple.jpg',   // in client/public
+  quotes: ['I think I wanna marry you', 'You can count on me like 1, 2, 3'],
+};
+```
+
 ## UI Components
 
-Landing (create/join room, name + avatar) and Game screen. Game screen components:
+Personalized Landing (couple photo, greeting, days counter, rotating lyric, pick-who-you-are, symbol picker, create/join) and Game screen. Components:
 
 - `Board`, `Cell`, `ConstraintMark` (`=` / `x` between cells)
+- `SymbolPicker` (choose the two icons; shared/synced)
 - `OpponentMiniBoard` (live progress), `Timer`, `Scoreboard` (tally / streak / best time)
 - `DifficultyPicker`, `ModeToggle` (Race / Co-op)
 - `ReactionsBar`, `FloatingReactions`, `GifPicker` (Tenor)
 - `MusicPlayer` (shared jukebox), `WinCelebration`
+- Icon registry mapping symbol keys (`bee`, `blueFlower`, `shokupan`, `saltBread`, `matcha`, `boba`, `iceCream`) to renderers
 
 ## Testing Strategy
 

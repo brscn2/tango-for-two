@@ -28,18 +28,22 @@ client/
     App.tsx
     index.css                  # Tailwind layers + Dreamy Pastel base
     theme.ts                   # color tokens, gradients
+    config/
+      personal.ts              # couple names, anniversary, photo, quotes (editable)
     lib/
       socket.ts                # typed socket.io client + emit helpers
-      store.ts                 # zustand store (state + actions)
+      store.ts                 # zustand store (state + actions, incl. symbols)
       boardLogic.ts            # cycleSymbol, lockedSet, conflictSet (pure)
       tenor.ts                 # GIF search
       youtube.ts               # IFrame API loader + player controller
     icons/
       Bee.tsx
       BlueFlower.tsx
+      registry.tsx             # SymbolKey -> renderer + PALETTE + labels
     components/
       Board.tsx
       Cell.tsx
+      SymbolPicker.tsx         # choose the two symbols (shared/synced)
       ConstraintMark.tsx
       OpponentBoard.tsx
       Timer.tsx
@@ -300,6 +304,98 @@ git commit -m "feat(client): bee and blue-flower SVG icons"
 
 ---
 
+## Task 2b: Symbol registry + personal config
+
+**Files:**
+- Create: `client/src/icons/registry.tsx`
+- Create: `client/src/config/personal.ts`
+
+- [ ] **Step 1: Write `client/src/icons/registry.tsx`**
+
+```tsx
+import type { ReactElement } from 'react';
+import type { SymbolKey } from '@tango/shared';
+import { Bee } from './Bee';
+import { BlueFlower } from './BlueFlower';
+
+function Emoji({ char, label, size = 28 }: { char: string; label: string; size?: number }) {
+  return (
+    <span role="img" aria-label={label} style={{ fontSize: Math.round(size * 0.9), lineHeight: 1 }}>
+      {char}
+    </span>
+  );
+}
+
+export const SYMBOL_META: Record<SymbolKey, { label: string; render: (size?: number) => ReactElement }> = {
+  bee: { label: 'bee', render: (s) => <Bee size={s} /> },
+  blueFlower: { label: 'blue flower', render: (s) => <BlueFlower size={s} /> },
+  shokupan: { label: 'shokupan', render: (s) => <Emoji char="🍞" label="shokupan" size={s} /> },
+  saltBread: { label: 'salt bread', render: (s) => <Emoji char="🥐" label="salt bread" size={s} /> },
+  matcha: { label: 'matcha', render: (s) => <Emoji char="🍵" label="matcha" size={s} /> },
+  boba: { label: 'boba', render: (s) => <Emoji char="🧋" label="boba" size={s} /> },
+  iceCream: { label: 'ice cream', render: (s) => <Emoji char="🍦" label="ice cream" size={s} /> },
+};
+
+export const PALETTE: SymbolKey[] = ['bee', 'blueFlower', 'shokupan', 'saltBread', 'matcha', 'boba', 'iceCream'];
+```
+
+- [ ] **Step 2: Write `client/src/config/personal.ts`**
+
+Replace the placeholder values with the couple's real details. `icon` must be a key from the palette.
+
+```ts
+import type { Avatar } from '@tango/shared';
+
+export interface PersonalPlayer { id: string; name: string; icon: Avatar; }
+
+export const personal: {
+  players: [PersonalPlayer, PersonalPlayer];
+  anniversary: string; // YYYY-MM-DD
+  photoSrc: string;    // path under client/public
+  quotes: string[];
+} = {
+  players: [
+    { id: 'p1', name: 'Rosie', icon: 'blueFlower' },
+    { id: 'p2', name: 'Sam', icon: 'bee' },
+  ],
+  anniversary: '2022-06-18',
+  photoSrc: '/couple.jpg',
+  quotes: [
+    'I think I wanna marry you',
+    'You can count on me like 1, 2, 3',
+    "You're amazing just the way you are",
+  ],
+};
+
+/** Whole days since the anniversary date. */
+export function daysTogether(from: string = personal.anniversary, now: Date = new Date()): number {
+  const start = new Date(from + 'T00:00:00');
+  const ms = now.getTime() - start.getTime();
+  return Math.max(0, Math.floor(ms / 86400000));
+}
+
+/** Deterministic-ish daily quote so it feels intentional, not random on every render. */
+export function quoteOfNow(quotes: string[] = personal.quotes, now: Date = new Date()): string {
+  if (quotes.length === 0) return '';
+  const dayIndex = Math.floor(now.getTime() / 86400000);
+  return quotes[dayIndex % quotes.length];
+}
+```
+
+- [ ] **Step 3: Add a placeholder photo**
+
+Run: `mkdir -p client/public && printf '' > client/public/.gitkeep`
+Then drop the real photo at `client/public/couple.jpg` (or update `photoSrc`). The UI degrades gracefully if the image is missing (a heart emoji shows instead).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add client/src/icons/registry.tsx client/src/config/personal.ts client/public/.gitkeep
+git commit -m "feat(client): symbol registry + personal config"
+```
+
+---
+
 ## Task 3: Board logic (pure, TDD)
 
 **Files:**
@@ -407,7 +503,7 @@ export function createSocket(): TangoSocket {
 
 ```ts
 import { create } from 'zustand';
-import { cloneGrid, type Avatar, type Difficulty, type Grid, type MatchState, type Mode, type PlayerInfo, type ScoreEntry, type Slot, type Sym } from '@tango/shared';
+import { cloneGrid, DEFAULT_SYMBOLS, type Avatar, type Difficulty, type Grid, type MatchState, type Mode, type PlayerInfo, type ScoreEntry, type Slot, type Sym, type SymbolPair } from '@tango/shared';
 import { createSocket, type TangoSocket } from './socket';
 
 export interface FloatingReaction { id: number; fromSlot: Slot; kind: 'emoji' | 'gif'; content: string; }
@@ -423,6 +519,7 @@ interface State {
   opponentFilled: number;
   reactions: FloatingReaction[];
   music: { videoId?: string; action?: string; positionSec?: number; serverTime?: number };
+  symbols: SymbolPair;
   error: string | null;
 
   connect(): void;
@@ -432,6 +529,7 @@ interface State {
   setCell(row: number, col: number, value: Sym | null): void;
   sendReaction(kind: 'emoji' | 'gif', content: string): void;
   musicControl(action: 'load' | 'play' | 'pause' | 'seek', videoId?: string, positionSec?: number): void;
+  setSymbols(pair: SymbolPair): void;
   dismissReaction(id: number): void;
 }
 
@@ -448,13 +546,14 @@ export const useStore = create<State>((set, get) => ({
   opponentFilled: 0,
   reactions: [],
   music: {},
+  symbols: DEFAULT_SYMBOLS,
   error: null,
 
   connect() {
     if (get().socket) return;
     const socket = createSocket();
 
-    socket.on('roomState', (s) => set({ code: s.code, players: s.players, scores: s.scores, match: s.match }));
+    socket.on('roomState', (s) => set({ code: s.code, players: s.players, scores: s.scores, match: s.match, symbols: s.symbols }));
     socket.on('matchStarted', (m) => set({ match: m, myBoard: cloneGrid(m.puzzle.clues), opponentFilled: 0 }));
     socket.on('opponentProgress', (p) => { if (p.slot !== get().slot) set({ opponentFilled: p.filled }); });
     socket.on('coopCellUpdate', (p) => {
@@ -482,6 +581,8 @@ export const useStore = create<State>((set, get) => ({
       const socket = get().socket!;
       socket.emit('createRoom', { name, avatar }, ({ code, slot }) => {
         set({ code, slot });
+        // Apply the symbols chosen on the landing page to the new room.
+        socket.emit('setSymbols', get().symbols);
         resolve();
       });
     });
@@ -520,6 +621,11 @@ export const useStore = create<State>((set, get) => ({
     get().socket!.emit('musicControl', { action, videoId, positionSec });
   },
 
+  setSymbols(pair) {
+    set({ symbols: pair }); // optimistic; server echoes via roomState
+    get().socket!.emit('setSymbols', pair);
+  },
+
   dismissReaction(id) { set((st) => ({ reactions: st.reactions.filter((r) => r.id !== id) })); },
 }));
 ```
@@ -545,19 +651,27 @@ git commit -m "feat(client): typed socket client and zustand game store"
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Cell } from '../components/Cell';
+import type { SymbolPair } from '@tango/shared';
+
+const symbols: SymbolPair = { a: 'bee', b: 'blueFlower' };
 
 describe('Cell', () => {
-  it('renders a bee and calls onClick when unlocked', () => {
+  it('renders symbol A (bee) for logical value "bee" and calls onClick when unlocked', () => {
     const onClick = vi.fn();
-    render(<Cell value="bee" locked={false} conflict={false} onClick={onClick} />);
+    render(<Cell value="bee" symbols={symbols} locked={false} conflict={false} onClick={onClick} />);
     expect(screen.getByLabelText('bee')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button'));
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it('renders symbol B for logical value "flower" using the chosen pair', () => {
+    render(<Cell value="flower" symbols={{ a: 'matcha', b: 'boba' }} locked={false} conflict={false} onClick={() => {}} />);
+    expect(screen.getByLabelText('boba')).toBeInTheDocument();
+  });
+
   it('does not call onClick when locked', () => {
     const onClick = vi.fn();
-    render(<Cell value="flower" locked conflict={false} onClick={onClick} />);
+    render(<Cell value="flower" symbols={symbols} locked conflict={false} onClick={onClick} />);
     fireEvent.click(screen.getByRole('button'));
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -572,18 +686,19 @@ Expected: FAIL - `Cannot find module '../components/Cell'`.
 - [ ] **Step 3: Write `client/src/components/Cell.tsx`**
 
 ```tsx
-import type { Cell as CellValue } from '@tango/shared';
-import { Bee } from '../icons/Bee';
-import { BlueFlower } from '../icons/BlueFlower';
+import type { Cell as CellValue, SymbolPair } from '@tango/shared';
+import { SYMBOL_META } from '../icons/registry';
 
 interface Props {
   value: CellValue;
+  symbols: SymbolPair;
   locked: boolean;
   conflict: boolean;
   onClick: () => void;
 }
 
-export function Cell({ value, locked, conflict, onClick }: Props) {
+export function Cell({ value, symbols, locked, conflict, onClick }: Props) {
+  const key = value === 'bee' ? symbols.a : value === 'flower' ? symbols.b : null;
   return (
     <button
       type="button"
@@ -594,10 +709,9 @@ export function Cell({ value, locked, conflict, onClick }: Props) {
         locked ? 'ring-2 ring-lilac cursor-default' : 'hover:bg-white cursor-pointer',
         conflict ? 'ring-2 ring-rose-400 bg-rose-50' : '',
       ].join(' ')}
-      aria-label={value ?? 'empty'}
+      aria-label={key ? SYMBOL_META[key].label : 'empty'}
     >
-      {value === 'bee' && <Bee />}
-      {value === 'flower' && <BlueFlower />}
+      {key && SYMBOL_META[key].render(28)}
     </button>
   );
 }
@@ -623,7 +737,7 @@ export function ConstraintMark({ kind }: { kind: '=' | 'x' }) {
 - [ ] **Step 6: Write `client/src/components/Board.tsx`**
 
 ```tsx
-import { SIZE, type EdgeConstraint, type Grid } from '@tango/shared';
+import { SIZE, type EdgeConstraint, type Grid, type SymbolPair } from '@tango/shared';
 import { conflictSet, cycleSymbol, lockedSet } from '../lib/boardLogic';
 import { Cell } from './Cell';
 import { ConstraintMark } from './ConstraintMark';
@@ -632,11 +746,12 @@ interface Props {
   board: Grid;
   clues: Grid;
   constraints: EdgeConstraint[];
+  symbols: SymbolPair;
   onCell(row: number, col: number, next: ReturnType<typeof cycleSymbol>): void;
   disabled?: boolean;
 }
 
-export function Board({ board, clues, constraints, onCell, disabled }: Props) {
+export function Board({ board, clues, constraints, symbols, onCell, disabled }: Props) {
   const locked = lockedSet(clues);
   const conflicts = conflictSet(board, constraints);
 
@@ -657,6 +772,7 @@ export function Board({ board, clues, constraints, onCell, disabled }: Props) {
             <Cell
               key={`${r},${c}`}
               value={value}
+              symbols={symbols}
               locked={locked.has(`${r},${c}`) || !!disabled}
               conflict={conflicts.has(`${r},${c}`)}
               onClick={() => onCell(r, c, cycleSymbol(value))}
@@ -816,6 +932,69 @@ export function Controls({ onStart, disabled }: { onStart(mode: Mode, difficulty
 ```bash
 git add client/src/components/Timer.tsx client/src/components/Scoreboard.tsx client/src/components/OpponentBoard.tsx client/src/components/Controls.tsx
 git commit -m "feat(client): timer, scoreboard, opponent progress, match controls"
+```
+
+---
+
+## Task 6b: SymbolPicker (choose the two symbols)
+
+**Files:**
+- Create: `client/src/components/SymbolPicker.tsx`
+
+- [ ] **Step 1: Write `client/src/components/SymbolPicker.tsx`**
+
+```tsx
+import type { SymbolKey, SymbolPair } from '@tango/shared';
+import { PALETTE, SYMBOL_META } from '../icons/registry';
+
+interface Props { value: SymbolPair; onChange(pair: SymbolPair): void; }
+
+export function SymbolPicker({ value, onChange }: Props) {
+  const setSlot = (slot: 'a' | 'b', key: SymbolKey) => {
+    const next: SymbolPair = { ...value, [slot]: key };
+    if (next.a === next.b) return; // the two symbols must differ
+    onChange(next);
+  };
+
+  const Row = ({ slot }: { slot: 'a' | 'b' }) => (
+    <div className="flex items-center gap-2">
+      <span className="w-16 text-xs uppercase tracking-wide opacity-70">Symbol {slot.toUpperCase()}</span>
+      <div className="flex flex-wrap gap-1">
+        {PALETTE.map((key) => {
+          const selected = value[slot] === key;
+          const takenByOther = value[slot === 'a' ? 'b' : 'a'] === key;
+          return (
+            <button
+              key={key}
+              disabled={takenByOther}
+              onClick={() => setSlot(slot, key)}
+              className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${selected ? 'bg-petal/30 ring-2 ring-petal' : 'bg-white/70'} ${takenByOther ? 'opacity-25' : 'hover:bg-white'}`}
+              aria-label={SYMBOL_META[key].label}
+              title={SYMBOL_META[key].label}
+            >
+              {SYMBOL_META[key].render(22)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl bg-white/60 p-3">
+      <div className="text-center text-xs uppercase tracking-wide opacity-70">Choose your symbols</div>
+      <Row slot="a" />
+      <Row slot="b" />
+    </div>
+  );
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add client/src/components/SymbolPicker.tsx
+git commit -m "feat(client): shared symbol picker"
 ```
 
 ---
@@ -1129,7 +1308,7 @@ git commit -m "feat(client): win celebration overlay"
 
 ---
 
-## Task 10: Landing page
+## Task 10: Personalized landing page
 
 **Files:**
 - Create: `client/src/pages/Landing.tsx`
@@ -1140,58 +1319,82 @@ git commit -m "feat(client): win celebration overlay"
 import { useState } from 'react';
 import type { Avatar } from '@tango/shared';
 import { useStore } from '../lib/store';
-import { Bee } from '../icons/Bee';
-import { BlueFlower } from '../icons/BlueFlower';
+import { personal, daysTogether, quoteOfNow } from '../config/personal';
+import { SYMBOL_META } from '../icons/registry';
+import { SymbolPicker } from '../components/SymbolPicker';
 
 export function Landing() {
-  const { connect, createRoom, joinRoom } = useStore();
-  const [name, setName] = useState('');
-  const [avatar, setAvatar] = useState<Avatar>('flower');
+  const { connect, createRoom, joinRoom, symbols, setSymbols } = useStore();
+  const [me, setMe] = useState<{ name: string; icon: Avatar } | null>(null);
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [photoOk, setPhotoOk] = useState(true);
 
-  const ensure = () => { connect(); };
+  const requireMe = (): boolean => {
+    if (!me) { setError('Tap who you are first 🌸'); return false; }
+    return true;
+  };
 
   const doCreate = async () => {
-    if (!name.trim()) { setError('Enter a name first 🌸'); return; }
-    ensure();
-    await createRoom(name.trim(), avatar);
+    if (!requireMe()) return;
+    connect();
+    await createRoom(me!.name, me!.icon);
   };
 
   const doJoin = async () => {
-    if (!name.trim() || !joinCode.trim()) { setError('Name and room code, please'); return; }
-    ensure();
-    const res = await joinRoom(joinCode.trim().toUpperCase(), name.trim(), avatar);
+    if (!requireMe()) return;
+    if (!joinCode.trim()) { setError('Enter a room code'); return; }
+    connect();
+    const res = await joinRoom(joinCode.trim().toUpperCase(), me!.name, me!.icon);
     if (!res.ok) setError(res.error ?? 'Could not join');
   };
 
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
-      <div className="text-center">
-        <div className="text-6xl">🌸🐝</div>
-        <h1 className="mt-2 text-4xl font-bold text-plum">Tango for Two</h1>
-        <p className="text-plum/70">Unlimited puzzles, just us two 💜</p>
-      </div>
+  const days = daysTogether();
+  const quote = quoteOfNow();
 
-      <div className="w-full max-w-sm rounded-3xl bg-white/80 p-6 shadow-glow">
-        <label className="mb-1 block text-sm font-semibold text-plum">Your name</label>
-        <input
-          className="mb-4 w-full rounded-full border border-lilac px-4 py-2"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Rosie"
-        />
-        <div className="mb-4 flex items-center gap-3">
-          <span className="text-sm font-semibold text-plum">Your icon:</span>
-          <button className={`rounded-full p-2 ${avatar === 'flower' ? 'bg-lilac' : ''}`} onClick={() => setAvatar('flower')}><BlueFlower /></button>
-          <button className={`rounded-full p-2 ${avatar === 'bee' ? 'bg-lilac' : ''}`} onClick={() => setAvatar('bee')}><Bee /></button>
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="relative w-full max-w-md rounded-3xl bg-white/80 p-6 text-center shadow-glow">
+        <span className="pointer-events-none absolute left-4 top-3 text-xl">🌷</span>
+        <span className="pointer-events-none absolute right-4 top-3 text-xl">🐝</span>
+
+        <div className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-blush shadow-glow">
+          {photoOk
+            ? <img src={personal.photoSrc} alt="us" className="h-full w-full object-cover" onError={() => setPhotoOk(false)} />
+            : <span className="text-4xl">💞</span>}
         </div>
 
-        <button className="mb-4 w-full rounded-full bg-plum py-2 font-bold text-white shadow-glow" onClick={doCreate}>
-          Create a room
+        <h1 className="mt-3 text-3xl font-bold text-plum">
+          Welcome back, {personal.players[0].name} &amp; {personal.players[1].name}
+        </h1>
+        <p className="text-plum/70">Unlimited Tango, just us two 💛</p>
+
+        <div className="mx-auto mt-3 inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1 font-bold text-plum">
+          ❤️ {days.toLocaleString()} days together
+        </div>
+        {quote && <p className="mt-2 italic text-plum/70">&ldquo;{quote}&rdquo; 🎵</p>}
+
+        <div className="mt-5 text-xs uppercase tracking-wide text-plum/60">Who's playing?</div>
+        <div className="mt-2 flex justify-center gap-3">
+          {personal.players.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => { setMe({ name: p.name, icon: p.icon }); setError(null); }}
+              className={`flex flex-col items-center rounded-2xl px-5 py-3 shadow transition ${me?.name === p.name ? 'bg-petal/30 ring-2 ring-petal' : 'bg-white hover:bg-white/90'}`}
+            >
+              {SYMBOL_META[p.icon].render(30)}
+              <span className="mt-1 font-bold text-plum">{p.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-5"><SymbolPicker value={symbols} onChange={setSymbols} /></div>
+
+        <button className="mt-5 w-full rounded-full bg-plum py-2 font-bold text-white shadow-glow" onClick={doCreate}>
+          Start a game ✨
         </button>
 
-        <div className="mb-2 text-center text-xs uppercase tracking-wide text-plum/50">or join</div>
+        <div className="my-3 text-center text-xs uppercase tracking-wide text-plum/50">or join</div>
         <div className="flex gap-2">
           <input
             className="flex-1 rounded-full border border-lilac px-4 py-2 uppercase"
@@ -1201,18 +1404,20 @@ export function Landing() {
           />
           <button className="rounded-full bg-petal px-4 font-semibold text-white" onClick={doJoin}>Join</button>
         </div>
-        {error && <p className="mt-3 text-center text-sm text-rose-500">{error}</p>}
+        {error && <p className="mt-3 text-sm text-rose-500">{error}</p>}
       </div>
     </div>
   );
 }
 ```
 
+Note: `personal.ts` (Task 2b) drives all names/photo/anniversary/quotes. On create, the landing's chosen symbols are applied to the new room (store `createRoom` emits `setSymbols`); a joiner adopts the room's current symbols and can change them in-game.
+
 - [ ] **Step 2: Commit**
 
 ```bash
 git add client/src/pages/Landing.tsx
-git commit -m "feat(client): landing page (create/join room, name, avatar)"
+git commit -m "feat(client): personalized landing (photo, names, days counter, lyric, pick-who-you-are, symbol picker)"
 ```
 
 ---
@@ -1233,6 +1438,7 @@ import { OpponentBoard } from '../components/OpponentBoard';
 import { Timer } from '../components/Timer';
 import { Scoreboard } from '../components/Scoreboard';
 import { Controls } from '../components/Controls';
+import { SymbolPicker } from '../components/SymbolPicker';
 import { ReactionsBar } from '../components/ReactionsBar';
 import { FloatingReactions } from '../components/FloatingReactions';
 import { MusicPlayer } from '../components/MusicPlayer';
@@ -1241,7 +1447,7 @@ import { WinCelebration } from '../components/WinCelebration';
 export function Game() {
   const {
     code, slot, players, scores, match, myBoard, opponentFilled,
-    reactions, music, startMatch, setCell, sendReaction, musicControl, dismissReaction,
+    reactions, music, symbols, startMatch, setCell, sendReaction, musicControl, setSymbols, dismissReaction,
   } = useStore();
   const [celebrated, setCelebrated] = useState<string | null>(null);
 
@@ -1266,6 +1472,9 @@ export function Game() {
       <Scoreboard players={players} scores={scores} />
 
       <div className="my-4"><Controls onStart={startMatch} disabled={players.length < 2} /></div>
+      {(!match || match.status === 'won') && (
+        <div className="mx-auto mb-4 max-w-md"><SymbolPicker value={symbols} onChange={setSymbols} /></div>
+      )}
       {players.length < 2 && (
         <p className="text-center text-sm text-plum/70">Share room code <b>{code}</b> with your partner to begin 💌</p>
       )}
@@ -1278,6 +1487,7 @@ export function Game() {
               board={myBoard}
               clues={match.puzzle.clues}
               constraints={match.puzzle.constraints}
+              symbols={symbols}
               onCell={setCell}
               disabled={won}
             />
@@ -1353,9 +1563,10 @@ Run (terminal 2): `npm run dev -w @tango/client`
 - [ ] **Step 3: Manual smoke test**
 
 Open two browser windows at `http://localhost:5173`:
-- Window 1: enter a name, pick an icon, Create a room. Note the room code.
-- Window 2: enter a name, paste the code, Join.
-- In Window 1: pick Race + Medium, click "New puzzle". Both boards appear.
+- Window 1: confirm the personalized landing shows the couple photo (or heart fallback), both names, the days-together counter, and a rotating quote. Tap who you are, choose a symbol pair (e.g. Matcha + Boba), Create a room. Note the room code.
+- Window 2: tap who you are, paste the code, Join. Confirm the joined window adopts the same symbols.
+- In Window 1: pick Race + Medium, click "New puzzle". Both boards appear rendered with the chosen symbols.
+- Change symbols mid-lobby in one window; confirm both update.
 - Fill cells in Window 1; confirm Window 2's opponent-progress bar advances.
 - Complete the puzzle correctly in one window; confirm the win celebration and scoreboard increment in both.
 - Send an emoji and a GIF; confirm both appear floating in both windows.
@@ -1432,8 +1643,8 @@ Push to GitHub, connect the repo on Render (or Railway/Fly), set the `VITE_TENOR
 
 ## Self-Review (completed by plan author)
 
-- **Spec coverage:** Dreamy Pastel theme (Task 1), bee/blue-flower icons (Task 2), board with live conflict highlighting + constraint marks (Tasks 3, 5), Race opponent progress + Co-op shared board (Tasks 4, 6, 11), timer + persistent scoreboard display (Task 6), difficulty + mode selection (Task 6), emoji + GIF floating reactions via Tenor (Task 7), shared synced YouTube jukebox (Task 8), win celebration (Task 9), room create/join by link (Task 10), single-service deploy (Task 13). Covers the spec's UI Components, Real-Time Data Flow, and External Dependencies sections.
-- **Placeholder scan:** No TBD/TODO. Every component has complete code; verification tasks list concrete steps and expected results.
-- **Type consistency:** Client imports `Avatar`, `Difficulty`, `Mode`, `MatchState`, `PlayerInfo`, `ScoreEntry`, `Slot`, `Grid`, `Cell`, `EdgeConstraint`, `C2S`, `S2C` from `@tango/shared`. Store action signatures (`setCell`, `startMatch`, `sendReaction`, `musicControl`) match how `Game.tsx`, `Board.tsx`, `Controls.tsx`, `ReactionsBar.tsx`, and `MusicPlayer.tsx` call them. `FloatingReaction` type is defined in `store.ts` and consumed by `FloatingReactions.tsx`. Socket event names match Plan 2's `S2C`/`C2S`.
+- **Spec coverage:** Dreamy Pastel theme (Task 1), bee/blue-flower icons (Task 2), symbol registry + editable personal config (Task 2b), board with live conflict highlighting + constraint marks and symbol-driven rendering (Tasks 3, 5), shared symbol picker synced across players (Tasks 4, 6b, 10, 11), Race opponent progress + Co-op shared board (Tasks 4, 6, 11), timer + persistent scoreboard display (Task 6), difficulty + mode selection (Task 6), emoji + GIF floating reactions via Tenor (Task 7), shared synced YouTube jukebox (Task 8), win celebration (Task 9), personalized landing with photo/names/days-counter/rotating lyric/pick-who-you-are (Task 10), single-service deploy (Task 13). Covers the spec's Personalization, Symbol selection, UI Components, Real-Time Data Flow, and External Dependencies sections.
+- **Placeholder scan:** No TBD/TODO. Every component has complete code; `personal.ts` ships with editable sample values (names/anniversary/quotes) clearly meant to be replaced, and the photo degrades gracefully if missing. Verification tasks list concrete steps and expected results.
+- **Type consistency:** Client imports `Avatar` (= `SymbolKey`), `SymbolKey`, `SymbolPair`, `DEFAULT_SYMBOLS`, `Difficulty`, `Mode`, `MatchState`, `PlayerInfo`, `ScoreEntry`, `Slot`, `Grid`, `Cell`, `EdgeConstraint`, `C2S`, `S2C` from `@tango/shared`. Store action signatures (`setCell`, `startMatch`, `sendReaction`, `musicControl`, `setSymbols`) match how `Game.tsx`, `Board.tsx`, `Cell.tsx`, `Controls.tsx`, `SymbolPicker.tsx`, `ReactionsBar.tsx`, and `MusicPlayer.tsx` call them. `SYMBOL_META`/`PALETTE` in `registry.tsx` are keyed by `SymbolKey`. `FloatingReaction` type is defined in `store.ts` and consumed by `FloatingReactions.tsx`. Socket event names (incl. `setSymbols`/`roomState.symbols`) match Plan 2's `S2C`/`C2S`.
 
 **End of Plan 3.** With Plans 1-3 complete, the app is fully built, tested, and deployable.
