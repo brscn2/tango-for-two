@@ -40,6 +40,15 @@ export function GifPicker({ onPick, onClose }: { onPick(url: string): void; onCl
           />
         ))}
       </div>
+      {/* GIPHY attribution is required by their Terms of Service whenever GIPHY content is shown. */}
+      <a
+        href="https://giphy.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 block text-center text-[10px] font-semibold uppercase tracking-wide text-plum/50 hover:text-plum/80"
+      >
+        Powered by GIPHY
+      </a>
     </div>
   );
 }
