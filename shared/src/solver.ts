@@ -21,6 +21,21 @@ function partialValid(g: Grid, r: number, c: number, constraints: EdgeConstraint
     if (g[k][c] === v) cc++;
   }
   if (rc > HALF || cc > HALF) return false;
+  // LinkedIn uniqueness: a newly completed row/col must not match another complete one.
+  if (g[r].every((cell) => cell !== null)) {
+    const key = g[r].join(',');
+    for (let rr = 0; rr < SIZE; rr++) {
+      if (rr === r) continue;
+      if (g[rr].every((cell) => cell !== null) && g[rr].join(',') === key) return false;
+    }
+  }
+  if (g.every((row) => row[c] !== null)) {
+    const key = g.map((row) => row[c]).join(',');
+    for (let cc = 0; cc < SIZE; cc++) {
+      if (cc === c) continue;
+      if (g.every((row) => row[cc] !== null) && g.map((row) => row[cc]).join(',') === key) return false;
+    }
+  }
   // Constraints incident to (r, c) with both endpoints filled.
   for (const { a, b, kind } of constraints) {
     const touches = (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c);

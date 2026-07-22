@@ -4,13 +4,14 @@ import { isValidSolution } from '../src/rules';
 import type { Grid, Puzzle } from '../src/types';
 
 const B = 'bee', F = 'flower';
+// LinkedIn-valid fixture (unique rows + columns).
 const VALID: Grid = [
+  [B, B, F, B, F, F],
+  [F, F, B, F, B, B],
   [B, F, B, F, B, F],
   [F, B, F, B, F, B],
-  [B, F, B, F, B, F],
-  [F, B, F, B, F, B],
-  [B, F, B, F, B, F],
-  [F, B, F, B, F, B],
+  [B, F, F, B, B, F],
+  [F, B, B, F, F, B],
 ];
 
 function fullClues(g: Grid): Grid { return g.map((r) => r.slice()); }
@@ -65,7 +66,7 @@ describe('solver', () => {
   });
 
   it('returns 0 solutions when constraints contradict', () => {
-    // VALID has [0,0]=B and [0,1]=F (different), so '=' and 'x' cannot both hold.
+    // Same edge cannot be both '=' and 'x'.
     const p: Puzzle = {
       id: 'x',
       clues: fullClues(VALID),
@@ -75,6 +76,20 @@ describe('solver', () => {
       ],
       difficulty: 'easy',
     };
+    expect(countSolutions(p, 2)).toBe(0);
+    expect(solve(p)).toBeNull();
+  });
+
+  it('rejects a fully-filled board with duplicate rows', () => {
+    const dups: Grid = [
+      [B, F, B, F, B, F],
+      [F, B, F, B, F, B],
+      [B, F, B, F, B, F],
+      [F, B, F, B, F, B],
+      [B, F, B, F, B, F],
+      [F, B, F, B, F, B],
+    ];
+    const p: Puzzle = { id: 'x', clues: fullClues(dups), constraints: [], difficulty: 'easy' };
     expect(countSolutions(p, 2)).toBe(0);
     expect(solve(p)).toBeNull();
   });

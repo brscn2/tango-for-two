@@ -7,8 +7,18 @@ import type { Grid } from '../src/types';
 
 const B = 'bee', F = 'flower';
 
-// A known-valid balanced 6x6 grid with no 3-in-a-row.
+// LinkedIn-valid: balanced, no 3-in-a-row, all rows unique, all columns unique.
 const VALID: Grid = [
+  [B, B, F, B, F, F],
+  [F, F, B, F, B, B],
+  [B, F, B, F, B, F],
+  [F, B, F, B, F, B],
+  [B, F, F, B, B, F],
+  [F, B, B, F, F, B],
+];
+
+// Same as old checkerboard-style fixture: valid under balance/triples, but duplicate rows/cols.
+const DUP_ROWS: Grid = [
   [B, F, B, F, B, F],
   [F, B, F, B, F, B],
   [B, F, B, F, B, F],
@@ -37,11 +47,11 @@ describe('rules', () => {
   });
 
   it('isValidSolution accepts a valid balanced grid with satisfied constraints', () => {
-    expect(isValidSolution(VALID, [{ a: [0, 0], b: [0, 1], kind: 'x' }])).toBe(true);
+    expect(isValidSolution(VALID, [{ a: [0, 0], b: [0, 1], kind: '=' }])).toBe(true);
   });
 
   it('isValidSolution rejects when a constraint is violated', () => {
-    expect(isValidSolution(VALID, [{ a: [0, 0], b: [0, 1], kind: '=' }])).toBe(false);
+    expect(isValidSolution(VALID, [{ a: [0, 0], b: [0, 1], kind: 'x' }])).toBe(false);
   });
 
   it('isValidSolution rejects an imbalanced complete grid', () => {
@@ -55,6 +65,15 @@ describe('rules', () => {
     const g = cloneGrid(VALID);
     g[0][0] = B; g[1][0] = B; g[2][0] = B;
     expect(isValidSolution(g, [])).toBe(false);
+  });
+
+  it('isValidSolution rejects duplicate rows (LinkedIn uniqueness rule)', () => {
+    expect(isValidSolution(DUP_ROWS, [])).toBe(false);
+  });
+
+  it('findConflicts flags cells in duplicate rows', () => {
+    const conflicts = findConflicts(DUP_ROWS, []);
+    expect(conflicts).toEqual(expect.arrayContaining([[0, 0], [2, 0], [4, 0]]));
   });
 
   it('findConflicts flags a horizontal 3-in-a-row', () => {
@@ -86,7 +105,8 @@ describe('rules', () => {
   });
 
   it('findConflicts flags a broken constraint', () => {
-    const conflicts = findConflicts(VALID, [{ a: [0, 0], b: [0, 1], kind: '=' }]);
+    // VALID row0 starts BB — an 'x' between them is violated.
+    const conflicts = findConflicts(VALID, [{ a: [0, 0], b: [0, 1], kind: 'x' }]);
     expect(conflicts).toEqual(expect.arrayContaining([[0, 0], [0, 1]]));
   });
 

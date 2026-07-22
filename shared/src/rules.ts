@@ -60,6 +60,34 @@ export function findConflicts(g: Grid, constraints: EdgeConstraint[]): Coord[] {
     }
   }
 
+  // LinkedIn uniqueness: no two complete rows (or columns) may be identical.
+  const rowGroups = new Map<string, number[]>();
+  const colGroups = new Map<string, number[]>();
+  for (let i = 0; i < SIZE; i++) {
+    const row = g[i];
+    if (row.every((c) => c !== null)) {
+      const key = row.join(',');
+      const list = rowGroups.get(key) ?? [];
+      list.push(i);
+      rowGroups.set(key, list);
+    }
+    const col = g.map((rr) => rr[i]);
+    if (col.every((c) => c !== null)) {
+      const key = col.join(',');
+      const list = colGroups.get(key) ?? [];
+      list.push(i);
+      colGroups.set(key, list);
+    }
+  }
+  for (const rows of rowGroups.values()) {
+    if (rows.length < 2) continue;
+    for (const r of rows) for (let c = 0; c < SIZE; c++) mark(r, c);
+  }
+  for (const cols of colGroups.values()) {
+    if (cols.length < 2) continue;
+    for (const c of cols) for (let r = 0; r < SIZE; r++) mark(r, c);
+  }
+
   return [...set].map((k) => k.split(',').map(Number) as Coord);
 }
 

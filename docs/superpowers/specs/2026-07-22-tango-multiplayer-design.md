@@ -51,6 +51,7 @@ A framework-agnostic module in `shared/` used by both the client (rendering, liv
 - 6x6 grid; every cell holds one of two symbols (bee or flower).
 - Each row and each column contains exactly 3 bees and 3 flowers.
 - No more than 2 identical symbols consecutively in any row or column (no 3-in-a-row).
+- No two rows may be identical, and no two columns may be identical (LinkedIn uniqueness rule).
 - Edge constraints between orthogonally adjacent cells: `=` (the two cells must be the same symbol) and `x` (the two cells must differ).
 - A valid puzzle has exactly one solution.
 
