@@ -1,3 +1,10 @@
+import { useEffect } from 'react';
+import { useStore } from './lib/store';
+import { Landing } from './pages/Landing';
+import { Game } from './pages/Game';
+
 export default function App() {
-  return <div className="p-8 text-center text-plum">Tango for Two - loading…</div>;
+  const { connect, code } = useStore();
+  useEffect(() => { connect(); }, [connect]);
+  return code ? <Game /> : <Landing />;
 }
