@@ -1,0 +1,21 @@
+# Brainstorm scratch (visual companion)
+.superpowers/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Env / secrets
+.env
+.env.local
+
+# SQLite data
+*.sqlite
+*.sqlite3
+*.db
+
+# OS / editor
+.DS_Store
