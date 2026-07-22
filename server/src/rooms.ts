@@ -133,6 +133,21 @@ export class RoomManager {
     };
   }
 
+  /** Private board state for a rejoining player (never broadcast room-wide). */
+  getBoardState(code: string, slot: Slot): { board: Grid; opponentFilled: number } | null {
+    const room = this.rooms.get(code);
+    const match = room?.match;
+    if (!match || match.status !== 'playing') return null;
+    if (match.mode === 'coop') {
+      return { board: match.boards[0], opponentFilled: countFilled(match.boards[0]) };
+    }
+    const otherSlot: Slot = slot === 0 ? 1 : 0;
+    return {
+      board: match.boards[slot],
+      opponentFilled: countFilled(match.boards[otherSlot]),
+    };
+  }
+
   /** Test-only: read the hidden solution. */
   getSolution(code: string): Grid | null {
     return this.rooms.get(code)?.match?.solution ?? null;

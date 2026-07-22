@@ -20,6 +20,8 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       socket.join(code);
       cb({ code, slot });
       broadcastRoomState(code);
+      const board = manager.getBoardState(code, slot);
+      if (board) socket.emit('boardSync', board);
     });
 
     socket.on('joinRoom', ({ code, name, avatar }: { code: string; name: string; avatar: Avatar }, cb) => {
@@ -30,6 +32,8 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       socket.join(code);
       cb(res);
       broadcastRoomState(code);
+      const board = manager.getBoardState(code, res.slot);
+      if (board) socket.emit('boardSync', board);
     });
 
     socket.on('startMatch', ({ mode, difficulty }: { mode: Mode; difficulty: Difficulty }) => {

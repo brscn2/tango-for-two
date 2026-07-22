@@ -71,6 +71,7 @@ export interface C2S {
 export interface S2C {
   roomState: (s: RoomState) => void;
   matchStarted: (m: MatchState) => void;
+  boardSync: (p: { board: Grid; opponentFilled: number }) => void;
   opponentProgress: (p: { slot: Slot; filled: number; total: number }) => void;
   coopCellUpdate: (p: { row: number; col: number; value: Sym | null; bySlot: Slot }) => void;
   matchWon: (p: { winnerSlot: Slot | null; timeMs: number; scores: ScoreEntry[] }) => void;

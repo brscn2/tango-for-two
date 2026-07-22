@@ -13,13 +13,15 @@ import { WinCelebration } from '../components/WinCelebration';
 
 export function Game() {
   const {
-    code, slot, players, scores, match, myBoard, opponentFilled,
+    code, slot, players, scores, match, myBoard, opponentFilled, connected,
     reactions, music, symbols, startMatch, setCell, sendReaction, musicControl, setSymbols, dismissReaction,
   } = useStore();
   const [celebrated, setCelebrated] = useState<string | null>(null);
 
   const opponentSlot = slot === 0 ? 1 : 0;
-  const opponentName = players.find((p) => p.slot === opponentSlot)?.name ?? 'Partner';
+  const partner = players.find((p) => p.slot === opponentSlot);
+  const opponentName = partner?.name ?? 'Partner';
+  const partnerOffline = !!partner && partner.connected === false;
   const won = match?.status === 'won';
   const winnerName = match?.winnerSlot === null || match?.winnerSlot === undefined
     ? null
@@ -29,6 +31,17 @@ export function Game() {
   return (
     <div className="mx-auto max-w-5xl p-4">
       <FloatingReactions reactions={reactions} onDone={dismissReaction} />
+
+      {!connected && (
+        <div className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm text-amber-900">
+          Reconnecting…
+        </div>
+      )}
+      {connected && partnerOffline && (
+        <div className="mb-3 rounded-lg bg-rose-100 px-3 py-2 text-center text-sm text-plum">
+          Waiting for {opponentName} to reconnect…
+        </div>
+      )}
 
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <span className="rounded-full bg-white/80 px-3 py-1 font-semibold text-plum">Room {code}</span>

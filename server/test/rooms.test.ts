@@ -79,4 +79,30 @@ describe('RoomManager', () => {
     }
     expect(done.winnerSlot).toBeNull();
   });
+
+  it('getBoardState returns private board + opponent filled count for race', () => {
+    const m = manager();
+    const { code } = m.createRoom('A', 'bee');
+    m.joinRoom(code, 'B', 'blueFlower');
+    const match = m.startMatch(code, 'race' as Mode, 'easy');
+    const solution = m.getSolution(code)!;
+
+    // Apply a couple of non-clue cells for slot 0.
+    const empties: Array<[number, number]> = [];
+    for (let r = 0; r < 6 && empties.length < 2; r++) {
+      for (let c = 0; c < 6 && empties.length < 2; c++) {
+        if (match.puzzle.clues[r][c] === null) empties.push([r, c]);
+      }
+    }
+    for (const [r, c] of empties) {
+      m.applyCell(code, 0, r, c, solution[r][c]);
+    }
+
+    const clueFilled = match.puzzle.clues.flat().filter((c) => c !== null).length;
+    const state = m.getBoardState(code, 1);
+    expect(state).not.toBeNull();
+    // Slot 1 still has only clues; opponentFilled reflects slot 0's two fills.
+    expect(state!.opponentFilled).toBe(clueFilled + 2);
+    expect(state!.board).toEqual(match.puzzle.clues);
+  });
 });

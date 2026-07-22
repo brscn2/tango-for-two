@@ -6,8 +6,11 @@ export interface FloatingReaction { id: number; fromSlot: Slot; kind: 'emoji' | 
 
 interface State {
   socket: TangoSocket | null;
+  connected: boolean;
   code: string | null;
   slot: Slot | null;
+  lastName: string | null;
+  lastAvatar: Avatar | null;
   players: PlayerInfo[];
   scores: ScoreEntry[];
   match: MatchState | null;
@@ -33,8 +36,11 @@ let reactionSeq = 0;
 
 export const useStore = create<State>((set, get) => ({
   socket: null,
+  connected: false,
   code: null,
   slot: null,
+  lastName: null,
+  lastAvatar: null,
   players: [],
   scores: [],
   match: null,
@@ -49,6 +55,18 @@ export const useStore = create<State>((set, get) => ({
     if (get().socket) return;
     const socket = createSocket();
 
+    socket.on('connect', () => {
+      set({ connected: true });
+      const { code, lastName, lastAvatar } = get();
+      // Reclaim room slot after reconnect; skip before the user has entered a room.
+      if (code && lastName && lastAvatar) {
+        socket.emit('joinRoom', { code, name: lastName, avatar: lastAvatar }, (r) => {
+          if (r.ok && r.slot !== undefined) set({ slot: r.slot });
+        });
+      }
+    });
+    socket.on('disconnect', () => set({ connected: false }));
+
     socket.on('roomState', (s) => {
       const myBoard = s.match
         ? (get().myBoard ?? cloneGrid(s.match.puzzle.clues))
@@ -56,6 +74,7 @@ export const useStore = create<State>((set, get) => ({
       set({ code: s.code, players: s.players, scores: s.scores, match: s.match, symbols: s.symbols, myBoard });
     });
     socket.on('matchStarted', (m) => set({ match: m, myBoard: cloneGrid(m.puzzle.clues), opponentFilled: 0 }));
+    socket.on('boardSync', ({ board, opponentFilled }) => set({ myBoard: board, opponentFilled }));
     socket.on('opponentProgress', (p) => { if (p.slot !== get().slot) set({ opponentFilled: p.filled }); });
     socket.on('coopCellUpdate', (p) => {
       const board = get().myBoard;
@@ -81,7 +100,7 @@ export const useStore = create<State>((set, get) => ({
     return new Promise((resolve) => {
       const socket = get().socket!;
       socket.emit('createRoom', { name, avatar }, ({ code, slot }) => {
-        set({ code, slot });
+        set({ code, slot, lastName: name, lastAvatar: avatar });
         // Apply the symbols chosen on the landing page to the new room.
         socket.emit('setSymbols', get().symbols);
         resolve();
@@ -93,7 +112,9 @@ export const useStore = create<State>((set, get) => ({
     return new Promise((resolve) => {
       const socket = get().socket!;
       socket.emit('joinRoom', { code, name, avatar }, (r) => {
-        if (r.ok && r.slot !== undefined) set({ code, slot: r.slot });
+        if (r.ok && r.slot !== undefined) {
+          set({ code, slot: r.slot, lastName: name, lastAvatar: avatar });
+        }
         resolve({ ok: r.ok, error: r.error });
       });
     });
