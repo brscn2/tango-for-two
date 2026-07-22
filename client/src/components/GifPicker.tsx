@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { searchGifs, type Gif } from '../lib/tenor';
+import { searchGifs, type Gif } from '../lib/giphy';
 
 export function GifPicker({ onPick, onClose }: { onPick(url: string): void; onClose(): void }) {
   const [q, setQ] = useState('bruno mars');
@@ -28,7 +28,7 @@ export function GifPicker({ onPick, onClose }: { onPick(url: string): void; onCl
       <div className="mt-2 grid max-h-64 grid-cols-3 gap-1 overflow-y-auto">
         {loading && <div className="col-span-3 py-6 text-center text-sm opacity-60">Loading…</div>}
         {!loading && gifs.length === 0 && (
-          <div className="col-span-3 py-6 text-center text-xs opacity-60">No GIFs (check VITE_TENOR_KEY).</div>
+          <div className="col-span-3 py-6 text-center text-xs opacity-60">No GIFs (check VITE_GIPHY_KEY).</div>
         )}
         {gifs.map((g) => (
           <img

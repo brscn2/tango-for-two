@@ -16,8 +16,9 @@ export const personal: {
   photoSrc: '/couple.jpg',   // add the real photo here later
   quotes: [
     'I should have bought you flowers', // When I Was Your Man - Bruno Mars
-    'Always 2-1 for the World Cup ⚽',
+    'Never doubt 2-1 ⚽',
     'Two fatasses who love to eat 🍜',
+    'You are the first person to get me a flavor :)'
   ],
 };
 
