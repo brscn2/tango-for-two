@@ -19,6 +19,8 @@ export const SYMBOL_META: Record<SymbolKey, { label: string; render: (size?: num
   matcha: { label: 'matcha', render: (s) => <Emoji char="🍵" label="matcha" size={s} /> },
   boba: { label: 'boba', render: (s) => <Emoji char="🧋" label="boba" size={s} /> },
   iceCream: { label: 'ice cream', render: (s) => <Emoji char="🍦" label="ice cream" size={s} /> },
+  sun: { label: 'sun', render: (s) => <Emoji char="☀️" label="sun" size={s} /> },
+  moon: { label: 'moon', render: (s) => <Emoji char="🌙" label="moon" size={s} /> },
 };
 
-export const PALETTE: SymbolKey[] = ['bee', 'blueFlower', 'shokupan', 'saltBread', 'matcha', 'boba', 'iceCream'];
+export const PALETTE: SymbolKey[] = ['bee', 'blueFlower', 'shokupan', 'saltBread', 'matcha', 'boba', 'iceCream', 'sun', 'moon'];

@@ -5,7 +5,7 @@ export type Mode = 'race' | 'coop';
 
 // All selectable symbol icons. The engine still uses logical 'bee'/'flower';
 // a SymbolPair maps logical 'bee' -> a, logical 'flower' -> b for rendering.
-export type SymbolKey = 'bee' | 'blueFlower' | 'shokupan' | 'saltBread' | 'matcha' | 'boba' | 'iceCream';
+export type SymbolKey = 'bee' | 'blueFlower' | 'shokupan' | 'saltBread' | 'matcha' | 'boba' | 'iceCream' | 'sun' | 'moon';
 export interface SymbolPair { a: SymbolKey; b: SymbolKey; }
 export const DEFAULT_SYMBOLS: SymbolPair = { a: 'bee', b: 'blueFlower' };
 
