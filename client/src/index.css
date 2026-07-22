@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body {
+  margin: 0;
+  font-family: 'Quicksand', ui-rounded, system-ui, sans-serif;
+  color: #4a4160;
+  background: linear-gradient(135deg, #fce4f0 0%, #e8e0fb 100%);
+  min-height: 100vh;
+}

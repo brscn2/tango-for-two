@@ -19,3 +19,6 @@ build/
 
 # OS / editor
 .DS_Store
+
+# TS build info
+*.tsbuildinfo

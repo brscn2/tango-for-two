@@ -1,0 +1,10 @@
+{
+  "name": "tango-multiplayer",
+  "private": true,
+  "workspaces": ["shared", "server", "client"],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build -w @tango/client",
+    "start": "npm run start -w @tango/server"
+  }
+}
