@@ -11,5 +11,5 @@ export function Timer({ startedAt, stopped }: { startedAt: number; stopped: bool
   const s = Math.floor(ms / 1000);
   const mm = String(Math.floor(s / 60)).padStart(2, '0');
   const ss = String(s % 60).padStart(2, '0');
-  return <span className="rounded-full bg-white/80 px-3 py-1 font-semibold text-plum">⏳ {mm}:{ss}</span>;
+  return <span className="rounded-full bg-surface/80 px-3 py-1 font-semibold text-ink">⏳ {mm}:{ss}</span>;
 }

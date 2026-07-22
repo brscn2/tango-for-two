@@ -11,7 +11,7 @@ export function Scoreboard({ players, scores }: { players: PlayerInfo[]; scores:
   const s0 = scores.find((s) => s.slot === 0);
   const s1 = scores.find((s) => s.slot === 1);
   return (
-    <div className="rounded-2xl bg-white/70 px-4 py-2 text-sm text-plum shadow-glow">
+    <div className="rounded-2xl bg-surface/70 px-4 py-2 text-sm text-ink shadow-glow">
       <div className="flex items-center justify-center gap-3 font-semibold">
         <span>🏵️ {name(0)} {s0?.wins ?? 0}</span>
         <span className="opacity-50">—</span>

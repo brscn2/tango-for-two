@@ -13,7 +13,7 @@ export function GifPicker({ onPick, onClose }: { onPick(url: string): void; onCl
   };
 
   return (
-    <div className="absolute bottom-16 left-1/2 z-40 w-80 -translate-x-1/2 rounded-2xl bg-white p-3 shadow-glow">
+    <div className="absolute bottom-16 left-1/2 z-40 w-80 -translate-x-1/2 rounded-2xl bg-surface p-3 shadow-glow">
       <div className="flex gap-2">
         <input
           className="flex-1 rounded-full border border-lilac px-3 py-1 text-sm"
@@ -23,7 +23,7 @@ export function GifPicker({ onPick, onClose }: { onPick(url: string): void; onCl
           placeholder="Search GIFs…"
         />
         <button className="rounded-full bg-petal px-3 py-1 text-sm font-semibold text-white" onClick={run}>Go</button>
-        <button className="text-plum/60" onClick={onClose}>✕</button>
+        <button className="text-ink/60" onClick={onClose}>✕</button>
       </div>
       <div className="mt-2 grid max-h-64 grid-cols-3 gap-1 overflow-y-auto">
         {loading && <div className="col-span-3 py-6 text-center text-sm opacity-60">Loading…</div>}
@@ -45,7 +45,7 @@ export function GifPicker({ onPick, onClose }: { onPick(url: string): void; onCl
         href="https://giphy.com/"
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 block text-center text-[10px] font-semibold uppercase tracking-wide text-plum/50 hover:text-plum/80"
+        className="mt-2 block text-center text-[10px] font-semibold uppercase tracking-wide text-ink/50 hover:text-ink/80"
       >
         Powered by GIPHY
       </a>

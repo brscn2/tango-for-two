@@ -2,12 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  --surface: 255 255 255;   /* cards / cells */
+  --ink: 74 65 96;          /* primary text (plum) */
+  --page-from: 252 228 240; /* blush */
+  --page-to: 232 224 251;   /* lilac */
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: 45 39 70;      /* cozy night-garden card */
+  --ink: 233 228 250;       /* soft lavender text */
+  --page-from: 24 20 40;    /* deep night */
+  --page-to: 40 32 66;      /* deep plum */
+}
 
 body {
   margin: 0;
   font-family: 'Quicksand', ui-rounded, system-ui, sans-serif;
-  color: #4a4160;
-  background: linear-gradient(135deg, #fce4f0 0%, #e8e0fb 100%);
+  color: rgb(var(--ink));
+  background: linear-gradient(135deg, rgb(var(--page-from)) 0%, rgb(var(--page-to)) 100%);
   min-height: 100vh;
 }

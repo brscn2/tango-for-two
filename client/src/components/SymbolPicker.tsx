@@ -22,7 +22,7 @@ export function SymbolPicker({ value, onChange }: Props) {
               key={key}
               disabled={takenByOther}
               onClick={() => setSlot(slot, key)}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${selected ? 'bg-petal/30 ring-2 ring-petal' : 'bg-white/70'} ${takenByOther ? 'opacity-25' : 'hover:bg-white'}`}
+              className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${selected ? 'bg-petal/30 ring-2 ring-petal' : 'bg-surface/70'} ${takenByOther ? 'opacity-25' : 'hover:bg-surface'}`}
               aria-label={SYMBOL_META[key].label}
               title={SYMBOL_META[key].label}
             >
@@ -35,7 +35,7 @@ export function SymbolPicker({ value, onChange }: Props) {
   );
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl bg-white/60 p-3">
+    <div className="flex flex-col gap-2 rounded-2xl bg-surface/60 p-3">
       <div className="text-center text-xs uppercase tracking-wide opacity-70">Choose your symbols</div>
       <Row slot="a" />
       <Row slot="b" />

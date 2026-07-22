@@ -7,7 +7,7 @@ export function ReactionsBar({ onEmoji, onGif }: { onEmoji(e: string): void; onG
   const [showGif, setShowGif] = useState(false);
   return (
     <div className="relative flex justify-center">
-      <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 shadow">
+      <div className="flex items-center gap-2 rounded-full bg-surface/80 px-4 py-2 shadow">
         {EMOJIS.map((e) => (
           <button key={e} className="text-2xl transition hover:scale-125" onClick={() => onEmoji(e)}>{e}</button>
         ))}

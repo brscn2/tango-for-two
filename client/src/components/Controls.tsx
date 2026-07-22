@@ -5,7 +5,7 @@ export function Controls({ onStart, disabled }: { onStart(mode: Mode, difficulty
   const [mode, setMode] = useState<Mode>('race');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const pill = (active: boolean) =>
-    `rounded-full px-3 py-1 text-sm font-semibold transition ${active ? 'bg-petal text-white' : 'bg-white/70 text-plum'}`;
+    `rounded-full px-3 py-1 text-sm font-semibold transition ${active ? 'bg-petal text-white' : 'bg-surface/70 text-ink'}`;
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">

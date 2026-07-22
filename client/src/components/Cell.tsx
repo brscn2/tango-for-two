@@ -17,13 +17,13 @@ export function Cell({ value, symbols, locked, conflict, onClick }: Props) {
       onClick={() => { if (!locked) onClick(); }}
       className={[
         'flex aspect-square items-center justify-center rounded-xl transition',
-        'bg-white/90 shadow-sm',
-        locked ? 'ring-2 ring-lilac cursor-default' : 'hover:bg-white cursor-pointer',
-        conflict ? 'ring-2 ring-rose-400 bg-rose-50' : '',
+        'bg-surface/90 shadow-sm',
+        locked ? 'ring-2 ring-lilac cursor-default' : 'hover:bg-surface cursor-pointer',
+        conflict ? 'ring-2 ring-rose-400 bg-rose-50 dark:bg-rose-900/40' : '',
       ].join(' ')}
       aria-label={key ? SYMBOL_META[key].label : 'empty'}
     >
-      {key && SYMBOL_META[key].render(28)}
+      {key && SYMBOL_META[key].render(40)}
     </button>
   );
 }

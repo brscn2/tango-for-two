@@ -63,7 +63,7 @@ export function MusicPlayer({ music, onControl }: Props) {
         </div>
         <div className="flex gap-1">
           <input
-            className="w-24 rounded px-1 text-xs text-plum"
+            className="w-24 rounded bg-white px-1 text-xs text-plum"
             placeholder="paste link"
             value={link}
             onChange={(e) => setLink(e.target.value)}

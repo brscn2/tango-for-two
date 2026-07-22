@@ -10,6 +10,7 @@ import { ReactionsBar } from '../components/ReactionsBar';
 import { FloatingReactions } from '../components/FloatingReactions';
 import { MusicPlayer } from '../components/MusicPlayer';
 import { WinCelebration } from '../components/WinCelebration';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 export function Game() {
   const {
@@ -33,20 +34,21 @@ export function Game() {
       <FloatingReactions reactions={reactions} onDone={dismissReaction} />
 
       {!connected && (
-        <div className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm text-amber-900">
+        <div className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
           Reconnecting…
         </div>
       )}
       {connected && partnerOffline && (
-        <div className="mb-3 rounded-lg bg-rose-100 px-3 py-2 text-center text-sm text-plum">
+        <div className="mb-3 rounded-lg bg-rose-100 px-3 py-2 text-center text-sm text-plum dark:bg-rose-900/40 dark:text-rose-100">
           Waiting for {opponentName} to reconnect…
         </div>
       )}
 
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="rounded-full bg-white/80 px-3 py-1 font-semibold text-plum">Room {code}</span>
+        <span className="rounded-full bg-surface/80 px-3 py-1 font-semibold text-ink">Room {code}</span>
         {match && <Timer startedAt={match.startedAt} stopped={won} />}
         <MusicPlayer music={music} onControl={musicControl} />
+        <ThemeToggle />
       </header>
 
       <Scoreboard players={players} scores={scores} />
@@ -56,7 +58,7 @@ export function Game() {
         <div className="mx-auto mb-4 max-w-md"><SymbolPicker value={symbols} onChange={setSymbols} /></div>
       )}
       {players.length < 2 && (
-        <p className="text-center text-sm text-plum/70">Share room code <b>{code}</b> with your partner to begin 💌</p>
+        <p className="text-center text-sm text-ink/70">Share room code <b>{code}</b> with your partner to begin 💌</p>
       )}
 
       {match && myBoard && (
