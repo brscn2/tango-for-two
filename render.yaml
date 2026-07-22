@@ -3,16 +3,18 @@ services:
     name: tango-for-two
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    # --include=dev ensures Vite/tsc are available for the client build even when NODE_ENV=production
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
         value: 20.11.0
-      - key: DB_PATH
-        value: /var/data/tango.sqlite
       - key: CORS_ORIGIN
         value: "*"
-    disk:
-      name: tango-data
-      mountPath: /var/data
-      sizeGB: 1
+      # Set these in the Render dashboard (marked sync:false so they aren't committed).
+      # VITE_GIPHY_KEY is baked into the client bundle at build time.
+      - key: VITE_GIPHY_KEY
+        sync: false
+      # MongoDB Atlas connection string; enables the persistent scoreboard.
+      - key: MONGODB_URI
+        sync: false

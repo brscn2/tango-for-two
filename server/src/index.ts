@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server } from 'socket.io';
 import type { C2S, S2C } from '@tango/shared';
-import { createDb } from './db';
+import { createDb, createMongoDb } from './db';
 import { RoomManager } from './rooms';
 import { registerSocketHandlers } from './socket';
 
@@ -18,7 +18,9 @@ const io = new Server<C2S, S2C>(server, {
   cors: { origin: process.env.CORS_ORIGIN ?? '*' },
 });
 
-const manager = new RoomManager(createDb(process.env.DB_PATH ?? 'tango.sqlite'));
+// Use MongoDB (e.g. Atlas) when configured; otherwise fall back to an ephemeral in-memory store.
+const db = process.env.MONGODB_URI ? await createMongoDb(process.env.MONGODB_URI) : createDb();
+const manager = new RoomManager(db);
 registerSocketHandlers(io, manager);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

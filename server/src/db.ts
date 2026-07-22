@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { MongoClient } from 'mongodb';
 import type { ScoreEntry, Slot } from '@tango/shared';
 
 export interface Db {
@@ -7,56 +7,106 @@ export interface Db {
   recordResult(code: string, winnerSlot: Slot, timeMs: number): ScoreEntry[];
 }
 
-export function createDb(path = 'tango.sqlite'): Db {
-  const sql = new Database(path);
-  sql.pragma('journal_mode = WAL');
-  sql.exec(`
-    CREATE TABLE IF NOT EXISTS rooms (
-      code TEXT PRIMARY KEY,
-      created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS scores (
-      code TEXT NOT NULL,
-      slot INTEGER NOT NULL,
-      wins INTEGER NOT NULL DEFAULT 0,
-      streak INTEGER NOT NULL DEFAULT 0,
-      best_time_ms INTEGER,
-      PRIMARY KEY (code, slot)
-    );
-  `);
+interface Row {
+  code: string;
+  slot: Slot;
+  wins: number;
+  streak: number;
+  bestTimeMs: number | null;
+}
 
-  const insertRoom = sql.prepare('INSERT OR IGNORE INTO rooms (code, created_at) VALUES (?, ?)');
-  const insertScore = sql.prepare('INSERT OR IGNORE INTO scores (code, slot) VALUES (?, ?)');
-  const selectScores = sql.prepare('SELECT slot, wins, streak, best_time_ms FROM scores WHERE code = ? ORDER BY slot');
+const SLOTS: Slot[] = [0, 1];
+const key = (code: string, slot: Slot) => `${code}:${slot}`;
+const otherSlot = (s: Slot): Slot => (s === 0 ? 1 : 0);
+
+/**
+ * In-memory scoreboard. Synchronous by design so RoomManager stays simple.
+ * `onChange` lets a durable backing store (e.g. MongoDB) persist mutated rows
+ * without forcing every caller to become async.
+ */
+function memoryDb(seed: Row[] = [], onChange?: (rows: Row[]) => void): Db {
+  const map = new Map<string, Row>();
+  for (const r of seed) map.set(key(r.code, r.slot), { ...r });
 
   function ensureRoom(code: string): void {
-    insertRoom.run(code, Date.now());
-    insertScore.run(code, 0);
-    insertScore.run(code, 1);
+    const created: Row[] = [];
+    for (const slot of SLOTS) {
+      const k = key(code, slot);
+      if (!map.has(k)) {
+        const row: Row = { code, slot, wins: 0, streak: 0, bestTimeMs: null };
+        map.set(k, row);
+        created.push(row);
+      }
+    }
+    if (created.length && onChange) onChange(created);
   }
 
   function getScores(code: string): ScoreEntry[] {
-    return (selectScores.all(code) as any[]).map((r) => ({
-      slot: r.slot as Slot,
-      wins: r.wins,
-      streak: r.streak,
-      bestTimeMs: r.best_time_ms ?? null,
-    }));
+    return SLOTS.map((slot) => {
+      const r = map.get(key(code, slot));
+      return {
+        slot,
+        wins: r?.wins ?? 0,
+        streak: r?.streak ?? 0,
+        bestTimeMs: r?.bestTimeMs ?? null,
+      };
+    });
   }
-
-  const winner = sql.prepare(
-    `UPDATE scores SET wins = wins + 1, streak = streak + 1,
-       best_time_ms = CASE WHEN best_time_ms IS NULL OR ? < best_time_ms THEN ? ELSE best_time_ms END
-     WHERE code = ? AND slot = ?`,
-  );
-  const loser = sql.prepare('UPDATE scores SET streak = 0 WHERE code = ? AND slot = ?');
 
   function recordResult(code: string, winnerSlot: Slot, timeMs: number): ScoreEntry[] {
     ensureRoom(code);
-    winner.run(timeMs, timeMs, code, winnerSlot);
-    loser.run(code, winnerSlot === 0 ? 1 : 0);
+    const w = map.get(key(code, winnerSlot))!;
+    w.wins += 1;
+    w.streak += 1;
+    if (w.bestTimeMs == null || timeMs < w.bestTimeMs) w.bestTimeMs = timeMs;
+    const l = map.get(key(code, otherSlot(winnerSlot)))!;
+    l.streak = 0;
+    if (onChange) onChange([w, l]);
     return getScores(code);
   }
 
   return { ensureRoom, getScores, recordResult };
+}
+
+/**
+ * Ephemeral in-memory scoreboard for local dev and tests. The optional `path`
+ * argument is ignored and kept only for call-site compatibility.
+ */
+export function createDb(_path?: string): Db {
+  return memoryDb();
+}
+
+/**
+ * MongoDB-backed scoreboard for production (e.g. MongoDB Atlas). Hydrates the
+ * in-memory cache from the `scores` collection on boot, then writes mutations
+ * through asynchronously. Await this before starting the server.
+ */
+export async function createMongoDb(uri: string, dbName = 'tango'): Promise<Db> {
+  const client = new MongoClient(uri);
+  await client.connect();
+  const coll = client.db(dbName).collection<Row>('scores');
+  await coll.createIndex({ code: 1, slot: 1 }, { unique: true });
+
+  const existing = await coll.find({}).toArray();
+  const seed: Row[] = existing.map((r) => ({
+    code: r.code,
+    slot: r.slot as Slot,
+    wins: r.wins ?? 0,
+    streak: r.streak ?? 0,
+    bestTimeMs: r.bestTimeMs ?? null,
+  }));
+
+  const persist = (rows: Row[]) => {
+    for (const r of rows) {
+      coll
+        .updateOne(
+          { code: r.code, slot: r.slot },
+          { $set: { wins: r.wins, streak: r.streak, bestTimeMs: r.bestTimeMs } },
+          { upsert: true },
+        )
+        .catch((e) => console.error('scoreboard persist failed', e));
+    }
+  };
+
+  return memoryDb(seed, persist);
 }
