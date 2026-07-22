@@ -355,15 +355,15 @@ export const personal: {
   quotes: string[];
 } = {
   players: [
-    { id: 'p1', name: 'Rosie', icon: 'blueFlower' },
-    { id: 'p2', name: 'Sam', icon: 'bee' },
+    { id: 'p1', name: 'Bibi', icon: 'blueFlower' },
+    { id: 'p2', name: 'Tuktuk', icon: 'bee' },
   ],
-  anniversary: '2022-06-18',
-  photoSrc: '/couple.jpg',
+  anniversary: '2026-06-30', // the day we started talking on Bumble
+  photoSrc: '/couple.jpg',   // add the real photo here later
   quotes: [
-    'I think I wanna marry you',
-    'You can count on me like 1, 2, 3',
-    "You're amazing just the way you are",
+    'I should have bought you flowers', // When I Was Your Man - Bruno Mars
+    'Always 2-1 for the World Cup ⚽',
+    'Two fatasses who love to eat 🍜',
   ],
 };
 
