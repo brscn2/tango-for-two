@@ -44,12 +44,44 @@ describe('rules', () => {
     expect(isValidSolution(VALID, [{ a: [0, 0], b: [0, 1], kind: '=' }])).toBe(false);
   });
 
+  it('isValidSolution rejects an imbalanced complete grid', () => {
+    const g = cloneGrid(VALID);
+    g[0][0] = B; g[0][1] = B; g[0][2] = B;
+    g[0][3] = B; g[0][4] = F; g[0][5] = F; // 4 bees, 2 flowers in row 0
+    expect(isValidSolution(g, [])).toBe(false);
+  });
+
+  it('isValidSolution rejects a vertical 3-in-a-row', () => {
+    const g = cloneGrid(VALID);
+    g[0][0] = B; g[1][0] = B; g[2][0] = B;
+    expect(isValidSolution(g, [])).toBe(false);
+  });
+
   it('findConflicts flags a horizontal 3-in-a-row', () => {
     const g = cloneGrid(VALID);
     g[0][0] = B; g[0][1] = B; g[0][2] = B;
     const conflicts = findConflicts(g, []);
     expect(conflicts).toEqual(
       expect.arrayContaining([[0, 0], [0, 1], [0, 2]]),
+    );
+  });
+
+  it('findConflicts flags a vertical 3-in-a-row', () => {
+    const g = cloneGrid(VALID);
+    g[0][0] = B; g[1][0] = B; g[2][0] = B;
+    const conflicts = findConflicts(g, []);
+    expect(conflicts).toEqual(
+      expect.arrayContaining([[0, 0], [1, 0], [2, 0]]),
+    );
+  });
+
+  it('findConflicts flags > HALF of one symbol in a row', () => {
+    const g = cloneGrid(VALID);
+    g[0][0] = B; g[0][1] = B; g[0][2] = B;
+    g[0][3] = B; g[0][4] = F; g[0][5] = F; // 4 bees > HALF
+    const conflicts = findConflicts(g, []);
+    expect(conflicts).toEqual(
+      expect.arrayContaining([[0, 0], [0, 1], [0, 2], [0, 3]]),
     );
   });
 

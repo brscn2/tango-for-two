@@ -1,5 +1,5 @@
 import { Coord, EdgeConstraint, Grid, HALF, Puzzle, SIZE, Sym } from './types';
-import { cloneGrid, constraintsSatisfied } from './rules';
+import { cloneGrid, isValidSolution } from './rules';
 
 const SYMS: Sym[] = ['bee', 'flower'];
 
@@ -49,8 +49,8 @@ export function countSolutions(puzzle: Puzzle, limit = 2): number {
   const dfs = (i: number): void => {
     if (count >= limit) return;
     if (i === cells.length) {
-      // Full board: verify all constraints (covers clue-to-clue edges).
-      if (constraintsSatisfied(g, puzzle.constraints)) count++;
+      // Full board: reject illegal pre-filled inputs and confirm a true solution.
+      if (isValidSolution(g, puzzle.constraints)) count++;
       return;
     }
     const [r, c] = cells[i];
@@ -70,7 +70,7 @@ export function solve(puzzle: Puzzle): Grid | null {
   const g = cloneGrid(puzzle.clues);
   const cells = emptyCells(g);
   const dfs = (i: number): boolean => {
-    if (i === cells.length) return constraintsSatisfied(g, puzzle.constraints);
+    if (i === cells.length) return isValidSolution(g, puzzle.constraints);
     const [r, c] = cells[i];
     for (const s of SYMS) {
       g[r][c] = s;

@@ -38,4 +38,44 @@ describe('solver', () => {
     expect(result).not.toBeNull();
     expect(isValidSolution(result as Grid, p.constraints)).toBe(true);
   });
+
+  it('rejects a fully-filled illegal board (imbalanced)', () => {
+    // All bees in row 0 → imbalanced (and also > HALF bees).
+    const illegal: Grid = [
+      [B, B, B, B, B, B],
+      [F, B, F, B, F, B],
+      [B, F, B, F, B, F],
+      [F, B, F, B, F, B],
+      [B, F, B, F, B, F],
+      [F, B, F, B, F, B],
+    ];
+    const p: Puzzle = { id: 'x', clues: fullClues(illegal), constraints: [], difficulty: 'easy' };
+    expect(countSolutions(p, 2)).toBe(0);
+    expect(solve(p)).toBeNull();
+  });
+
+  it('rejects a fully-filled illegal board (3-in-a-row)', () => {
+    const illegal: Grid = fullClues(VALID);
+    illegal[0][0] = B; illegal[0][1] = B; illegal[0][2] = B;
+    // Keep balance by flipping the matching flowers later in the row.
+    illegal[0][3] = F; illegal[0][4] = F; illegal[0][5] = F;
+    const p: Puzzle = { id: 'x', clues: illegal, constraints: [], difficulty: 'easy' };
+    expect(countSolutions(p, 2)).toBe(0);
+    expect(solve(p)).toBeNull();
+  });
+
+  it('returns 0 solutions when constraints contradict', () => {
+    // VALID has [0,0]=B and [0,1]=F (different), so '=' and 'x' cannot both hold.
+    const p: Puzzle = {
+      id: 'x',
+      clues: fullClues(VALID),
+      constraints: [
+        { a: [0, 0], b: [0, 1], kind: '=' },
+        { a: [0, 0], b: [0, 1], kind: 'x' },
+      ],
+      difficulty: 'easy',
+    };
+    expect(countSolutions(p, 2)).toBe(0);
+    expect(solve(p)).toBeNull();
+  });
 });
