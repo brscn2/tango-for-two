@@ -31,6 +31,15 @@ describe('RoomManager', () => {
     expect(m.joinRoom(code, 'C', 'bee')).toEqual({ ok: false, error: 'Room is full' });
   });
 
+  it('reclaims a disconnected slot on rejoin', () => {
+    const m = manager();
+    const { code } = m.createRoom('A', 'bee');
+    m.joinRoom(code, 'B', 'blueFlower');
+    m.setConnected(code, 1, false, null);
+    expect(m.joinRoom(code, 'B2', 'bee')).toEqual({ ok: true, slot: 1 });
+    expect(m.joinRoom(code, 'C', 'bee')).toEqual({ ok: false, error: 'Room is full' });
+  });
+
   it('detects a race win when a player fills the correct solution', () => {
     const m = manager();
     const { code } = m.createRoom('A', 'bee');

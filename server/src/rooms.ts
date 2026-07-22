@@ -35,9 +35,22 @@ export class RoomManager {
   joinRoom(code: string, name: string, avatar: Avatar): { ok: boolean; slot?: Slot; error?: string } {
     const room = this.rooms.get(code);
     if (!room) return { ok: false, error: 'Room not found' };
-    if (room.players[1]) return { ok: false, error: 'Room is full' };
-    room.players[1] = { slot: 1, name, avatar, socketId: null, connected: true };
-    return { ok: true, slot: 1 };
+    if (!room.players[1]) {
+      room.players[1] = { slot: 1, name, avatar, socketId: null, connected: true };
+      return { ok: true, slot: 1 };
+    }
+
+    const disconnected = ([0, 1] as const)
+      .map((slot) => room.players[slot])
+      .filter((p): p is Player => !!p && !p.connected);
+    if (disconnected.length === 0) return { ok: false, error: 'Room is full' };
+
+    const player = disconnected.find((p) => p.name === name) ?? disconnected[0];
+    player.name = name;
+    player.avatar = avatar;
+    player.socketId = null;
+    player.connected = true;
+    return { ok: true, slot: player.slot };
   }
 
   setConnected(code: string, slot: Slot, connected: boolean, socketId: string | null): void {
