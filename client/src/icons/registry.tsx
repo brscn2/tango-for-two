@@ -3,9 +3,9 @@ import type { SymbolKey } from '@tango/shared';
 import { Bee } from './Bee';
 import { BlueFlower } from './BlueFlower';
 
-function Emoji({ char, label, size = 28 }: { char: string; label: string; size?: number }) {
+function Emoji({ char, size = 28 }: { char: string; label: string; size?: number }) {
   return (
-    <span role="img" aria-label={label} style={{ fontSize: Math.round(size * 0.9), lineHeight: 1 }}>
+    <span aria-hidden="true" style={{ fontSize: Math.round(size * 0.9), lineHeight: 1 }}>
       {char}
     </span>
   );
