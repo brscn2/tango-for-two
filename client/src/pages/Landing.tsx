@@ -12,6 +12,7 @@ export function Landing() {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [photoOk, setPhotoOk] = useState(true);
+  const [quote] = useState(() => quoteOfNow());
 
   const requireMe = (): boolean => {
     if (!me) { setError('Tap who you are first 🌸'); return false; }
@@ -33,7 +34,6 @@ export function Landing() {
   };
 
   const days = daysTogether();
-  const quote = quoteOfNow();
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-6">

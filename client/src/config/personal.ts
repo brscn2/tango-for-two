@@ -29,9 +29,8 @@ export function daysTogether(from: string = personal.anniversary, now: Date = ne
   return Math.max(0, Math.floor(ms / 86400000));
 }
 
-/** Deterministic-ish daily quote so it feels intentional, not random on every render. */
-export function quoteOfNow(quotes: string[] = personal.quotes, now: Date = new Date()): string {
+/** Random quote — call once per page load (e.g. useState initializer), not every render. */
+export function quoteOfNow(quotes: string[] = personal.quotes): string {
   if (quotes.length === 0) return '';
-  const dayIndex = Math.floor(now.getTime() / 86400000);
-  return quotes[dayIndex % quotes.length];
+  return quotes[Math.floor(Math.random() * quotes.length)];
 }
