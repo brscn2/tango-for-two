@@ -23,10 +23,14 @@ export function MusicPlayer({ music, onControl }: Props) {
         width: '140',
         videoId: DEFAULT_VIDEO_ID,
         playerVars: { controls: 1 },
-        events: { onReady: () => setReady(true) },
+        events: { onReady: () => { if (!cancelled) setReady(true); } },
       });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      playerRef.current?.destroy?.();
+      playerRef.current = null;
+    };
   }, []);
 
   // Apply incoming sync events from the other player.

@@ -1,11 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { FloatingReaction } from '../lib/store';
 
 export function FloatingReactions({ reactions, onDone }: { reactions: FloatingReaction[]; onDone(id: number): void }) {
+  const scheduled = useRef(new Set<number>());
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
   useEffect(() => {
-    const timers = reactions.map((r) => setTimeout(() => onDone(r.id), 3500));
-    return () => timers.forEach(clearTimeout);
+    for (const r of reactions) {
+      if (scheduled.current.has(r.id)) continue;
+      scheduled.current.add(r.id);
+      const timer = setTimeout(() => {
+        timers.current.delete(r.id);
+        scheduled.current.delete(r.id);
+        onDone(r.id);
+      }, 3500);
+      timers.current.set(r.id, timer);
+    }
   }, [reactions, onDone]);
+
+  useEffect(() => () => {
+    for (const timer of timers.current.values()) clearTimeout(timer);
+    timers.current.clear();
+    scheduled.current.clear();
+  }, []);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">

@@ -49,7 +49,12 @@ export const useStore = create<State>((set, get) => ({
     if (get().socket) return;
     const socket = createSocket();
 
-    socket.on('roomState', (s) => set({ code: s.code, players: s.players, scores: s.scores, match: s.match, symbols: s.symbols }));
+    socket.on('roomState', (s) => {
+      const myBoard = s.match
+        ? (get().myBoard ?? cloneGrid(s.match.puzzle.clues))
+        : null;
+      set({ code: s.code, players: s.players, scores: s.scores, match: s.match, symbols: s.symbols, myBoard });
+    });
     socket.on('matchStarted', (m) => set({ match: m, myBoard: cloneGrid(m.puzzle.clues), opponentFilled: 0 }));
     socket.on('opponentProgress', (p) => { if (p.slot !== get().slot) set({ opponentFilled: p.filled }); });
     socket.on('coopCellUpdate', (p) => {
