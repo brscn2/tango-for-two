@@ -1,6 +1,9 @@
 # Brainstorm scratch (visual companion)
 .superpowers/
 
+# Local git worktrees
+.worktrees/
+
 # Dependencies
 node_modules/
 
