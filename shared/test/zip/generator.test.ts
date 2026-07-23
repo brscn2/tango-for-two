@@ -10,6 +10,18 @@ describe('generateHamiltonPath', () => {
     const path = generateHamiltonPath(6, mulberry32(3));
     expect(pathCoversGrid(path, 6)).toBe(true);
   });
+
+  it('finishes quickly on 7x7 for a pathological seed (no hang)', () => {
+    // Seed 2 previously caused unbounded DFS backtracking on 7×7.
+    const path = generateHamiltonPath(7, mulberry32(2));
+    expect(pathCoversGrid(path, 7)).toBe(true);
+  }, 1_000);
+
+  it('finishes generateZipPuzzle 7×7 hard quickly', () => {
+    const { puzzle, solutionPath } = generateZipPuzzle(7, 'hard', mulberry32(2));
+    expect(isValidZipSolution(solutionPath, puzzle)).toBe(true);
+    expect(countZipSolutions(puzzle, 2)).toBe(1);
+  }, 5_000);
 });
 
 describe('generateZipPuzzle', () => {

@@ -27,38 +27,81 @@ function shuffle<T>(arr: T[], rnd: () => number): T[] {
   return a;
 }
 
-/** DFS Hamiltonian path with random neighbor order + Warnsdorff degree heuristic. */
+/** Always-terminating serpentine covering path on an N×N grid. */
+function serpentinePath(size: ZipSize): ZipCoord[] {
+  const path: ZipCoord[] = [];
+  for (let r = 0; r < size; r++) {
+    if (r % 2 === 0) {
+      for (let c = 0; c < size; c++) path.push({ r, c });
+    } else {
+      for (let c = size - 1; c >= 0; c--) path.push({ r, c });
+    }
+  }
+  return path;
+}
+
+function transformPath(path: ZipCoord[], size: ZipSize, rnd: () => number): ZipCoord[] {
+  // Random rotate 0/90/180/270 and optional mirror — still a Hamiltonian path.
+  const k = Math.floor(rnd() * 4);
+  const mirror = rnd() < 0.5;
+  return path.map(({ r, c }) => {
+    let rr = r;
+    let cc = c;
+    if (mirror) cc = size - 1 - cc;
+    for (let i = 0; i < k; i++) {
+      const nr = cc;
+      const nc = size - 1 - rr;
+      rr = nr;
+      cc = nc;
+    }
+    return { r: rr, c: cc };
+  });
+}
+
+/**
+ * Hamiltonian path on N×N. Prefers Warnsdorff DFS with a hard node budget so
+ * unlucky seeds cannot hang the event loop; falls back to a transformed serpentine.
+ */
 export function generateHamiltonPath(size: ZipSize, rnd: () => number): ZipCoord[] {
   const target = size * size;
-  const visited = new Set<string>();
-  const path: ZipCoord[] = [];
+  const maxNodesPerAttempt = size * size * 40; // enough for easy cases, aborts pathological ones
 
-  function degree(cell: ZipCoord): number {
-    return orthogonalNeighbors(cell.r, cell.c, size).filter((n) => !visited.has(cellKey(n))).length;
-  }
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const visited = new Set<string>();
+    const path: ZipCoord[] = [];
+    let nodes = 0;
+    let aborted = false;
 
-  function dfs(cell: ZipCoord): boolean {
-    visited.add(cellKey(cell));
-    path.push(cell);
-    if (path.length === target) return true;
-    const neighbors = shuffle(orthogonalNeighbors(cell.r, cell.c, size), rnd)
-      .filter((n) => !visited.has(cellKey(n)))
-      .sort((a, b) => degree(a) - degree(b));
-    for (const n of neighbors) {
-      if (dfs(n)) return true;
+    function degree(cell: ZipCoord): number {
+      return orthogonalNeighbors(cell.r, cell.c, size).filter((n) => !visited.has(cellKey(n))).length;
     }
-    path.pop();
-    visited.delete(cellKey(cell));
-    return false;
+
+    function dfs(cell: ZipCoord): boolean {
+      if (aborted) return false;
+      if (++nodes > maxNodesPerAttempt) {
+        aborted = true;
+        return false;
+      }
+      visited.add(cellKey(cell));
+      path.push(cell);
+      if (path.length === target) return true;
+      const neighbors = shuffle(orthogonalNeighbors(cell.r, cell.c, size), rnd)
+        .filter((n) => !visited.has(cellKey(n)))
+        .sort((a, b) => degree(a) - degree(b));
+      for (const n of neighbors) {
+        if (dfs(n)) return true;
+        if (aborted) break;
+      }
+      path.pop();
+      visited.delete(cellKey(cell));
+      return false;
+    }
+
+    const s = { r: Math.floor(rnd() * size), c: Math.floor(rnd() * size) };
+    if (dfs(s) && !aborted) return path.map((p) => ({ ...p }));
   }
 
-  for (let attempt = 0; attempt < 40; attempt++) {
-    visited.clear();
-    path.length = 0;
-    const s = { r: Math.floor(rnd() * size), c: Math.floor(rnd() * size) };
-    if (dfs(s)) return path.map((p) => ({ ...p }));
-  }
-  throw new Error(`failed to find Hamiltonian path on ${size}x${size}`);
+  return transformPath(serpentinePath(size), size, rnd);
 }
 
 function pickWaypoints(path: ZipCoord[], k: number): ZipWaypoint[] {
