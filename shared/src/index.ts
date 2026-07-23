@@ -6,3 +6,4 @@ export * from './patterns';
 export * from './logicSolver';
 export * from './generator';
 export * from './protocol';
+export * from './zip';
