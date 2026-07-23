@@ -52,25 +52,63 @@ function sortedNeighbors(
   return neighbors;
 }
 
+function remainingReachable(
+  tip: ZipCoord,
+  visited: Set<string>,
+  wallSet: Set<string>,
+  size: number,
+): number {
+  const stack: ZipCoord[] = [];
+  const seen = new Set<string>();
+  for (const n of orthogonalNeighbors(tip.r, tip.c, size)) {
+    const k = cellKey(n);
+    if (visited.has(k) || seen.has(k)) continue;
+    if (hasWallBetween(wallSet, tip, n)) continue;
+    seen.add(k);
+    stack.push(n);
+  }
+  let count = seen.size;
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const n of orthogonalNeighbors(cur.r, cur.c, size)) {
+      const k = cellKey(n);
+      if (visited.has(k) || seen.has(k)) continue;
+      if (hasWallBetween(wallSet, cur, n)) continue;
+      seen.add(k);
+      stack.push(n);
+      count++;
+    }
+  }
+  return count;
+}
+
 function search(
   puzzle: ZipPuzzle,
   limit: number,
   collectOne: boolean,
-): { count: number; solution: ZipCoord[] | null } {
+  maxNodes: number,
+): { count: number; solution: ZipCoord[] | null; aborted: boolean } {
   const { size, walls, waypoints } = puzzle;
   const wallSet = buildWallSet(walls);
   const ordered = sortedWaypoints(waypoints);
   const waypointAt = waypointIndexByCell(ordered);
 
   const start = ordered.find((w) => w.n === 1);
-  if (!start) return { count: 0, solution: null };
+  if (!start) return { count: 0, solution: null, aborted: false };
 
   const totalCells = size * size;
   let count = 0;
+  let nodes = 0;
+  let aborted = false;
   let solution: ZipCoord[] | null = null;
+  const visited = new Set<string>();
 
   function dfs(path: ZipCoord[], nextWaypointIdx: number): void {
-    if (count >= limit) return;
+    if (count >= limit || aborted) return;
+    if (++nodes > maxNodes) {
+      aborted = true;
+      return;
+    }
 
     if (path.length === totalCells) {
       if (nextWaypointIdx === ordered.length) {
@@ -83,7 +121,9 @@ function search(
     }
 
     const current = path[path.length - 1];
-    const visited = new Set(path.map(cellKey));
+    const need = totalCells - path.length;
+    if (remainingReachable(current, visited, wallSet, size) < need) return;
+
     const neighbors = sortedNeighbors(current, visited, wallSet, size);
 
     for (const next of neighbors) {
@@ -94,22 +134,36 @@ function search(
         newWaypointIdx = nextWaypointIdx + 1;
       }
 
+      const key = cellKey(next);
+      visited.add(key);
       path.push(next);
       dfs(path, newWaypointIdx);
       path.pop();
+      visited.delete(key);
 
-      if (count >= limit) return;
+      if (count >= limit || aborted) return;
     }
   }
 
+  visited.add(cellKey(start));
   dfs([{ r: start.r, c: start.c }], 1);
-  return { count, solution };
+  return { count, solution, aborted };
 }
 
 export function countZipSolutions(puzzle: ZipPuzzle, limit = 2): number {
-  return search(puzzle, limit, false).count;
+  return search(puzzle, limit, false, Number.POSITIVE_INFINITY).count;
+}
+
+/** Like countZipSolutions but aborts after `maxNodes` expansions (for generators). */
+export function countZipSolutionsBounded(
+  puzzle: ZipPuzzle,
+  limit = 2,
+  maxNodes = 50_000,
+): { count: number; aborted: boolean } {
+  const { count, aborted } = search(puzzle, limit, false, maxNodes);
+  return { count, aborted };
 }
 
 export function findZipSolution(puzzle: ZipPuzzle): ZipCoord[] | null {
-  return search(puzzle, 1, true).solution;
+  return search(puzzle, 1, true, Number.POSITIVE_INFINITY).solution;
 }
