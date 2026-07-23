@@ -8,6 +8,11 @@ function pathIndexAt(path: ZipCoord[], r: number, c: number): number {
   return path.findIndex((p) => p.r === r && p.c === c);
 }
 
+/** Cell pitch in CSS px — larger than before so waypoints & walls read clearly. */
+const CELL = 56;
+const GAP = 6;
+const WALL = 6;
+
 export function ZipBoard({
   puzzle,
   path,
@@ -24,6 +29,7 @@ export function ZipBoard({
   pathRef.current = path;
   const size = puzzle.size;
   const wallSet = new Set(puzzle.walls.map((w) => wallKey(w)));
+  const boardPx = size * CELL + (size - 1) * GAP;
 
   const paintAt = (r: number, c: number) => {
     if (disabled) return;
@@ -45,10 +51,10 @@ export function ZipBoard({
     r + 1 < size && wallSet.has(wallKey({ r1: r, c1: c, r2: r + 1, c2: c }));
 
   return (
-    <div className="rounded-2xl bg-gradient-to-b from-orange-50 to-amber-100 p-3 dark:from-orange-950/50 dark:to-amber-950/40">
+    <div className="rounded-2xl bg-gradient-to-b from-orange-100 to-amber-50 p-4 shadow-inner dark:from-stone-900 dark:to-orange-950/60">
       <div
         className="relative mx-auto touch-none"
-        style={{ maxWidth: size * 48 }}
+        style={{ width: '100%', maxWidth: boardPx }}
         onPointerDown={(e) => {
           if (disabled) return;
           painting.current = true;
@@ -65,32 +71,60 @@ export function ZipBoard({
         onPointerCancel={() => { painting.current = false; }}
       >
         <div
-          className="grid gap-0 overflow-hidden rounded-lg bg-orange-800/80 p-0.5"
-          style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+          className="relative rounded-xl bg-stone-800 p-2 dark:bg-stone-950"
+          style={{ aspectRatio: '1 / 1' }}
         >
-          {Array.from({ length: size * size }, (_, i) => {
-            const r = Math.floor(i / size);
-            const c = i % size;
-            const borderRight = hasWallRight(r, c) ? 'border-r-[3px] border-r-[#7c2d12]' : '';
-            const borderBottom = hasWallDown(r, c) ? 'border-b-[3px] border-b-[#7c2d12]' : '';
-            return (
-              <div key={`${r}-${c}`} className={`${borderRight} ${borderBottom}`}>
-                <ZipCell
-                  r={r}
-                  c={c}
-                  puzzle={puzzle}
-                  path={path}
-                  pathIndex={pathIndexAt(path, r, c)}
-                />
-              </div>
-            );
-          })}
+          <div
+            className="grid h-full w-full"
+            style={{
+              gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
+              gap: GAP,
+            }}
+          >
+            {Array.from({ length: size * size }, (_, i) => {
+              const r = Math.floor(i / size);
+              const c = i % size;
+              return (
+                <div key={`${r}-${c}`} className="relative min-h-0 min-w-0">
+                  <ZipCell
+                    r={r}
+                    c={c}
+                    puzzle={puzzle}
+                    path={path}
+                    pathIndex={pathIndexAt(path, r, c)}
+                  />
+                  {hasWallRight(r, c) && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute top-[8%] z-20 rounded-full bg-stone-950 shadow-sm dark:bg-amber-100"
+                      style={{
+                        right: -(GAP / 2 + WALL / 2),
+                        width: WALL,
+                        height: '84%',
+                      }}
+                    />
+                  )}
+                  {hasWallDown(r, c) && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute left-[8%] z-20 rounded-full bg-stone-950 shadow-sm dark:bg-amber-100"
+                      style={{
+                        bottom: -(GAP / 2 + WALL / 2),
+                        height: WALL,
+                        width: '84%',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-      <div className="mt-3 flex justify-center">
+      <div className="mt-4 flex justify-center">
         <button
           type="button"
-          className="rounded-full bg-orange-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          className="rounded-full bg-orange-600 px-5 py-2 text-sm font-bold text-white shadow disabled:opacity-40"
           disabled={disabled || path.length === 0}
           onClick={() => onPathChange(clearPath())}
         >
