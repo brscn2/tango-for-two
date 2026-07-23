@@ -1,5 +1,7 @@
 import type { Server, Socket } from 'socket.io';
-import type { Avatar, BoardSize, C2S, Difficulty, Mode, MusicControl, S2C, Slot, Sym, SymbolPair } from '@tango/shared';
+import type {
+  Avatar, BoardSize, C2S, Difficulty, GameType, Mode, MusicControl, S2C, Slot, Sym, SymbolPair, ZipCoord, ZipSize,
+} from '@tango/shared';
 import type { RoomManager } from './rooms';
 
 interface Session { code: string; slot: Slot; }
@@ -13,6 +15,13 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       if (state) io.to(code).emit('roomState', state);
     };
 
+    const syncPrivateState = (code: string, slot: Slot) => {
+      const board = manager.getBoardState(code, slot);
+      if (board) socket.emit('boardSync', board);
+      const zip = manager.getZipPathState(code, slot);
+      if (zip) socket.emit('zipPathSync', zip);
+    };
+
     socket.on('createRoom', ({ name, avatar }: { name: string; avatar: Avatar }, cb) => {
       const { code, slot } = manager.createRoom(name, avatar);
       session = { code, slot };
@@ -20,8 +29,7 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       socket.join(code);
       cb({ code, slot });
       broadcastRoomState(code);
-      const board = manager.getBoardState(code, slot);
-      if (board) socket.emit('boardSync', board);
+      syncPrivateState(code, slot);
     });
 
     socket.on('joinRoom', ({ code, name, avatar }: { code: string; name: string; avatar: Avatar }, cb) => {
@@ -32,14 +40,30 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       socket.join(code);
       cb(res);
       broadcastRoomState(code);
-      const board = manager.getBoardState(code, res.slot);
-      if (board) socket.emit('boardSync', board);
+      syncPrivateState(code, res.slot);
     });
 
-    socket.on('startMatch', ({ mode, difficulty, size }: { mode: Mode; difficulty: Difficulty; size?: BoardSize }) => {
+    socket.on('startMatch', ({
+      mode, difficulty, size, gameType,
+    }: {
+      mode: Mode;
+      difficulty: Difficulty;
+      size?: BoardSize | ZipSize;
+      gameType?: GameType;
+    }) => {
       if (!session) return;
-      const match = manager.startMatch(session.code, mode, difficulty, size ?? 6);
-      io.to(session.code).emit('matchStarted', match);
+      try {
+        const match = manager.startMatch(
+          session.code,
+          mode,
+          difficulty,
+          size ?? 6,
+          gameType ?? 'tango',
+        );
+        io.to(session.code).emit('matchStarted', match);
+      } catch (e) {
+        socket.emit('errorMsg', { message: (e as Error).message });
+      }
     });
 
     socket.on('cellUpdate', ({ row, col, value }: { row: number; col: number; value: Sym | null }) => {
@@ -50,6 +74,13 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
       if (res.won) io.to(session.code).emit('matchWon', res.won);
     });
 
+    socket.on('zipPathUpdate', ({ path }: { path: ZipCoord[] }) => {
+      if (!session) return;
+      const res = manager.applyZipPath(session.code, session.slot, path);
+      if (res.progress) socket.to(session.code).emit('opponentProgress', res.progress);
+      if (res.won) io.to(session.code).emit('matchWon', res.won);
+    });
+
     socket.on('reaction', ({ kind, content }: { kind: 'emoji' | 'gif'; content: string }) => {
       if (!session) return;
       socket.to(session.code).emit('reaction', { fromSlot: session.slot, kind, content });
@@ -57,7 +88,6 @@ export function registerSocketHandlers(io: Server<C2S, S2C>, manager: RoomManage
 
     socket.on('musicControl', (ctrl: MusicControl) => {
       if (!session) return;
-      // Broadcast to everyone (including sender) with a server timestamp for drift correction.
       io.to(session.code).emit('musicSync', { ...ctrl, serverTime: Date.now() });
     });
 

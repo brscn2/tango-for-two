@@ -66,6 +66,6 @@ describe('socket race flow', () => {
 
     const result = await won;
     expect(result.winnerSlot).toBe(0);
-    expect(result.scores.find((s: any) => s.slot === 0).wins).toBe(1);
+    expect(result.scores.tango.find((s: any) => s.slot === 0).wins).toBe(1);
   });
 });

@@ -1,4 +1,15 @@
-import type { Avatar, Difficulty, Grid, Mode, PublicPuzzle, Slot, SymbolPair } from '@tango/shared';
+import type {
+  Avatar,
+  Difficulty,
+  GameType,
+  Grid,
+  Mode,
+  PublicPuzzle,
+  PublicZipPuzzle,
+  Slot,
+  SymbolPair,
+  ZipCoord,
+} from '@tango/shared';
 
 export interface Player {
   slot: Slot;
@@ -9,11 +20,17 @@ export interface Player {
 }
 
 export interface Match {
+  gameType: GameType;
   mode: Mode;
   difficulty: Difficulty;
-  puzzle: PublicPuzzle;
-  solution: Grid;        // server-only, never sent to clients
-  boards: Grid[];        // boards[slot] for race; boards[0] shared for coop
+  // tango
+  puzzle?: PublicPuzzle;
+  solution?: Grid;
+  boards?: Grid[];
+  // zip
+  zipPuzzle?: PublicZipPuzzle;
+  solutionPath?: ZipCoord[];
+  paths?: ZipCoord[][];
   startedAt: number;
   status: 'playing' | 'won';
   winnerSlot: Slot | null;

@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { RoomManager } from '../src/rooms';
 import { createDb } from '../src/db';
-import { generatePuzzle, mulberry32, type Difficulty, type Mode } from '@tango/shared';
+import {
+  generatePuzzle, generateZipPuzzle, mulberry32,
+  type Difficulty, type Mode, type ZipSize,
+} from '@tango/shared';
 
 function manager() {
-  // Deterministic generator for tests.
   const gen = (_s: 4 | 6 | 8 | 10, d: Difficulty) => generatePuzzle(6, d, mulberry32(123));
-  return new RoomManager(createDb(':memory:'), gen);
+  const zipGen = (size: ZipSize, d: Difficulty) => generateZipPuzzle(size, d, mulberry32(99));
+  return new RoomManager(createDb(':memory:'), gen, zipGen);
 }
 
 describe('RoomManager', () => {
@@ -45,20 +48,21 @@ describe('RoomManager', () => {
     const { code } = m.createRoom('A', 'bee');
     m.joinRoom(code, 'B', 'blueFlower');
     const match = m.startMatch(code, 'race' as Mode, 'easy');
-    const solution = m.getSolution(code)!; // test-only accessor
+    expect(match.gameType).toBe('tango');
+    const solution = m.getSolution(code)!;
+    const puzzle = match.puzzle!;
 
-    // Fill slot 0's board to match the solution.
     let won: any = null;
     for (let r = 0; r < 6; r++) {
       for (let c = 0; c < 6; c++) {
-        if (match.puzzle.clues[r][c] !== null) continue;
+        if (puzzle.clues[r][c] !== null) continue;
         const res = m.applyCell(code, 0, r, c, solution[r][c]);
         if (res.won) won = res.won;
       }
     }
     expect(won).not.toBeNull();
     expect(won.winnerSlot).toBe(0);
-    expect(won.scores.find((s: any) => s.slot === 0).wins).toBe(1);
+    expect(won.scores.tango.find((s: any) => s.slot === 0).wins).toBe(1);
   });
 
   it('coop broadcasts cell updates and completes with no winner', () => {
@@ -67,11 +71,12 @@ describe('RoomManager', () => {
     m.joinRoom(code, 'B', 'blueFlower');
     const match = m.startMatch(code, 'coop' as Mode, 'easy');
     const solution = m.getSolution(code)!;
+    const puzzle = match.puzzle!;
 
     let done: any = null;
     for (let r = 0; r < 6; r++) {
       for (let c = 0; c < 6; c++) {
-        if (match.puzzle.clues[r][c] !== null) continue;
+        if (puzzle.clues[r][c] !== null) continue;
         const res = m.applyCell(code, 0, r, c, solution[r][c]);
         expect(res.coop).toBeTruthy();
         if (res.won) done = res.won;
@@ -86,23 +91,53 @@ describe('RoomManager', () => {
     m.joinRoom(code, 'B', 'blueFlower');
     const match = m.startMatch(code, 'race' as Mode, 'easy');
     const solution = m.getSolution(code)!;
+    const puzzle = match.puzzle!;
 
-    // Apply a couple of non-clue cells for slot 0.
     const empties: Array<[number, number]> = [];
     for (let r = 0; r < 6 && empties.length < 2; r++) {
       for (let c = 0; c < 6 && empties.length < 2; c++) {
-        if (match.puzzle.clues[r][c] === null) empties.push([r, c]);
+        if (puzzle.clues[r][c] === null) empties.push([r, c]);
       }
     }
     for (const [r, c] of empties) {
       m.applyCell(code, 0, r, c, solution[r][c]);
     }
 
-    const clueFilled = match.puzzle.clues.flat().filter((c) => c !== null).length;
+    const clueFilled = puzzle.clues.flat().filter((c) => c !== null).length;
     const state = m.getBoardState(code, 1);
     expect(state).not.toBeNull();
-    // Slot 1 still has only clues; opponentFilled reflects slot 0's two fills.
     expect(state!.opponentFilled).toBe(clueFilled + 2);
-    expect(state!.board).toEqual(match.puzzle.clues);
+    expect(state!.board).toEqual(puzzle.clues);
+  });
+
+  it('starts a zip race match and rejects coop', () => {
+    const m = manager();
+    const { code } = m.createRoom('A', 'bee');
+    m.joinRoom(code, 'B', 'blueFlower');
+    expect(() => m.startMatch(code, 'coop', 'easy', 6, 'zip')).toThrow(/race/i);
+    const state = m.startMatch(code, 'race', 'easy', 6, 'zip');
+    expect(state.gameType).toBe('zip');
+    expect(state.zipPuzzle?.size).toBe(6);
+    expect(state.puzzle).toBeUndefined();
+  });
+
+  it('zip path update wins when solution valid', () => {
+    const m = manager();
+    const { code } = m.createRoom('A', 'bee');
+    m.joinRoom(code, 'B', 'blueFlower');
+    m.startMatch(code, 'race', 'easy', 6, 'zip');
+    const sol = m.getZipSolution(code)!;
+    const result = m.applyZipPath(code, 0, sol);
+    expect(result.won?.winnerSlot).toBe(0);
+    expect(result.won?.scores.zip.find((s) => s.slot === 0)?.wins).toBe(1);
+    expect(result.won?.scores.tango.find((s) => s.slot === 0)?.wins).toBe(0);
+  });
+
+  it('default gameType remains tango', () => {
+    const m = manager();
+    const { code } = m.createRoom('A', 'bee');
+    m.joinRoom(code, 'B', 'blueFlower');
+    const state = m.startMatch(code, 'race', 'easy', 6);
+    expect(state.gameType).toBe('tango');
   });
 });
