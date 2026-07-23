@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { Board } from '../components/Board';
+import { ZipBoard } from '../components/zip/ZipBoard';
 import { OpponentBoard } from '../components/OpponentBoard';
 import { Timer } from '../components/Timer';
 import { Scoreboard } from '../components/Scoreboard';
@@ -14,8 +15,8 @@ import { ThemeToggle } from '../components/ThemeToggle';
 
 export function Game() {
   const {
-    code, slot, players, scores, match, myBoard, opponentFilled, connected,
-    reactions, music, symbols, startMatch, setCell, sendReaction, musicControl, setSymbols, dismissReaction,
+    code, slot, players, scores, match, myBoard, myPath, opponentFilled, connected,
+    reactions, music, symbols, startMatch, setCell, setZipPath, sendReaction, musicControl, setSymbols, dismissReaction,
   } = useStore();
   const [celebrated, setCelebrated] = useState<string | null>(null);
 
@@ -27,7 +28,10 @@ export function Game() {
   const winnerName = match?.winnerSlot === null || match?.winnerSlot === undefined
     ? null
     : players.find((p) => p.slot === match.winnerSlot)?.name ?? null;
-  const showCelebration = won && celebrated !== match?.puzzle.id;
+  const matchId = match?.gameType === 'zip' ? match.zipPuzzle?.id : match?.puzzle?.id;
+  const showCelebration = won && celebrated !== matchId;
+  const boardSize =
+    match?.gameType === 'zip' ? match.zipPuzzle!.size : match?.puzzle?.size ?? 6;
 
   return (
     <div className="mx-auto max-w-5xl p-4">
@@ -61,7 +65,24 @@ export function Game() {
         <p className="text-center text-sm text-ink/70">Share room code <b>{code}</b> with your partner to begin 💌</p>
       )}
 
-      {match && myBoard && (
+      {match?.gameType === 'zip' && match.zipPuzzle && myPath && (
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          <div className="flex-[1.4]">
+            <div className="mb-1 text-xs uppercase tracking-wide opacity-70">Your board</div>
+            <ZipBoard
+              puzzle={match.zipPuzzle}
+              path={myPath}
+              onPathChange={setZipPath}
+              disabled={won}
+            />
+          </div>
+          <div className="flex-1">
+            <OpponentBoard filled={opponentFilled} name={opponentName} size={boardSize} />
+          </div>
+        </div>
+      )}
+
+      {match?.gameType === 'tango' && myBoard && match.puzzle && (
         <div className="flex flex-col gap-6 md:flex-row md:items-start">
           <div className="flex-[1.4]">
             <div className="mb-1 text-xs uppercase tracking-wide opacity-70">Your board</div>
@@ -89,11 +110,11 @@ export function Game() {
         />
       </div>
 
-      {showCelebration && match && (
+      {showCelebration && match && matchId && (
         <WinCelebration
           winnerName={winnerName}
           timeMs={Date.now() - match.startedAt}
-          onClose={() => setCelebrated(match.puzzle.id)}
+          onClose={() => setCelebrated(matchId)}
         />
       )}
     </div>
